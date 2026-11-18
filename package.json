@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "description": "Select Gemini 4 & Antigravity models on an interactive 118-element Periodic Table (Chrome Extension + Antigravity Plugin + Userscript).",
-  "author": "BACKSPACEGH",
+  "author": "Meow",
   "repository": {
     "type": "git",
     "url": "https://github.com/BACKSPACEGH/periodic-model-picker.git"

@@ -2,8 +2,11 @@
 // @name         Gemini Model Periodic Table
 // @namespace    https://github.com/BACKSPACEGH/periodic-model-picker
 // @version      1.0.0
+// @author       Meow
 // @description  Select Gemini 4 models (Hydrogen, Carbon, Argon + Thinking levels) on an interactive 118-element Periodic Table!
 // @match        https://gemini.google.com/*
+// @downloadURL  https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js
+// @updateURL    https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==

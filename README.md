@@ -4,7 +4,13 @@
   <img src="./assets/preview.svg" alt="Model Periodic Table Preview" width="880" />
 </p>
 
-An interactive **118-element Periodic Table** model selector for **Gemini Web (`gemini.google.com`)** and **Google Antigravity** — inspired by the Gemini 4 chemical element naming scheme (**Hydrogen**, **Carbon**, **Argon**).
+<p align="center">
+  <a href="https://backspacegh.github.io/periodic-model-picker/"><strong>🌐 Live Interactive Demo (在线试玩)</strong></a> ·
+  <a href="https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js"><strong>⚡ One-Click Userscript (油猴一键安装)</strong></a> ·
+  <a href="https://github.com/BACKSPACEGH/periodic-model-picker/releases/latest"><strong>📦 Download Chrome Extension (.zip)</strong></a>
+</p>
+
+An interactive **118-element Periodic Table** model selector for **Gemini Web (`gemini.google.com`)** and **Google Antigravity** — inspired by the Gemini 4 chemical element naming scheme (**Hydrogen**, **Carbon**, **Argon**). Created by **Meow**.
 
 在一个完整的 **118 元素周期表** 上丝滑切换 **Gemini 4** 与 **Antigravity** 模型（支持 **Hydrogen 氢**、**Carbon 碳**、**Argon 氩** 三大已发布元素模型 + `Low / Medium / High / XHigh` 思考深度切换 + 其余 115 种 `Coming soon` 彩蛋元素卡片预览）。
 
