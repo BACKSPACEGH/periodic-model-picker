@@ -1,0 +1,1792 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Model Periodic Table v1.0.0 — Promo Studio</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    canvas {
+      width: 960px;
+      height: 540px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+      background: #f8fafc;
+    }
+  </style>
+  <script src="/shared/periodic-table-data.js"></script>
+</head>
+<body>
+  <canvas id="stage" width="1920" height="1080"></canvas>
+  <script>
+    (() => {
+      const canvas = document.getElementById('stage');
+      const ctx = canvas.getContext('2d', { alpha: false });
+      const DATA = window.GeminiPeriodicTableData;
+      const ELEMENTS = DATA.ELEMENTS;
+      const BY_SYM = DATA.ELEMENTS_BY_SYMBOL;
+
+      const W = 1920;
+      const H = 1080;
+      const BPM = 124;
+      const BEAT = 60 / BPM;          // 0.48387097s
+      const BAR = BEAT * 4;           // 1.93548387s
+      const TOTAL_BARS = 31;          // 60.0000s
+      const DURATION = TOTAL_BARS * BAR;
+
+      const FONT_SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif';
+      const FONT_MONO = '"SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace';
+
+      // Math & Easing helpers
+      const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const invLerp = (a, b, v) => clamp((v - a) / (b - a));
+      const easeOutCubic = (t) => 1 - Math.pow(1 - clamp(t), 3);
+      const easeOutQuint = (t) => 1 - Math.pow(1 - clamp(t), 5);
+      const easeInOutCubic = (t) => {
+        t = clamp(t);
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      };
+      const springPop = (t) => {
+        t = clamp(t);
+        if (t <= 0) return 0;
+        if (t >= 1) return 1;
+        return 1 - Math.exp(-6.5 * t) * Math.cos(9.5 * t);
+      };
+
+      // Rounded rect helper
+      function rr(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+      }
+
+      function fillCard(x, y, w, h, r, fill = '#ffffff', stroke = 'rgba(15,23,42,0.08)', shadowAlpha = 0.085, shadowY = 22, shadowBlur = 54) {
+        ctx.save();
+        if (shadowAlpha > 0) {
+          ctx.shadowColor = `rgba(15, 23, 42, ${shadowAlpha})`;
+          ctx.shadowBlur = shadowBlur;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = shadowY;
+        }
+        rr(x, y, w, h, r);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.restore();
+
+        if (stroke) {
+          ctx.save();
+          rr(x, y, w, h, r);
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // Studio light background + subtle architectural grid + optional ambient glow
+      function drawStudioBackground(accentColor = 'rgba(59,130,246,0.07)', glowX = 1280, glowY = 520) {
+        const grad = ctx.createRadialGradient(W * 0.52, H * 0.44, 80, W * 0.5, H * 0.5, 1180);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.58, '#f5f8fc');
+        grad.addColorStop(1, '#eaeff7');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle ambient bloom
+        if (accentColor) {
+          const bloom = ctx.createRadialGradient(glowX, glowY, 30, glowX, glowY, 540);
+          bloom.addColorStop(0, accentColor);
+          bloom.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = bloom;
+          ctx.fillRect(0, 0, W, H);
+        }
+
+        // Architectural 48px grid
+        ctx.save();
+        ctx.strokeStyle = 'rgba(15, 23, 42, 0.032)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 48; x < W; x += 48) {
+          ctx.moveTo(x + 0.5, 0);
+          ctx.lineTo(x + 0.5, H);
+        }
+        for (let y = 48; y < H; y += 48) {
+          ctx.moveTo(0, y + 0.5);
+          ctx.lineTo(W, y + 0.5);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Corner editorial HUD (matches Antigrative Dashboard V-0.9.1 video style)
+      function drawEditorialHUD(t, chapterNum, totalChapters = 9, alpha = 1) {
+        if (alpha <= 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font = `600 14px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.textBaseline = 'middle';
+
+        // Top-left
+        ctx.textAlign = 'left';
+        ctx.fillText('MODEL PERIODIC TABLE  /  v1.0.0', 76, 52);
+
+        // Top-right: chapter + SMPTE timecode MM:SS:FF
+        const mins = String(Math.floor(t / 60)).padStart(2, '0');
+        const secs = String(Math.floor(t % 60)).padStart(2, '0');
+        const frames = String(Math.floor((t % 1) * 60)).padStart(2, '0');
+        const chapStr = `${String(chapterNum).padStart(2, '0')} / ${String(totalChapters).padStart(2, '0')}    ${mins}:${secs}:${frames}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(chapStr, W - 76, 52);
+
+        // Bottom-left
+        ctx.textAlign = 'left';
+        ctx.fillText('GEMINI 4   ·   插件 v1.0.0   ·   CREATED BY MEOW', 76, H - 48);
+
+        // Bottom-right: 124 BPM with beat pulse dot
+        const beatPhase = (t / BEAT) % 1;
+        const pulse = Math.exp(-5.5 * beatPhase);
+        ctx.textAlign = 'right';
+        ctx.fillText('124 BPM', W - 76, H - 48);
+
+        ctx.beginPath();
+        ctx.arc(W - 154, H - 48, 4 + pulse * 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(37, 99, 235, ${0.42 + pulse * 0.58})`;
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // Left-column editorial copy block (matches — 01 · 标题 + Heavy Headline + Subtitle)
+      function drawLeftEditorial(tagNum, tagLabel, titleLines, descLines, enterProg = 1, x = 116, y = 390) {
+        const p = easeOutQuint(enterProg);
+        ctx.save();
+        ctx.globalAlpha = clamp(enterProg * 1.5);
+        ctx.translate(0, (1 - p) * 28);
+
+        // Section tag: — 01 · 标签
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 26, y);
+        ctx.stroke();
+
+        ctx.font = `700 18px ${FONT_SANS}`;
+        ctx.fillStyle = '#2563eb';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${tagNum}  ·  ${tagLabel}`, x + 38, y);
+
+        // Main headline
+        let curY = y + 58;
+        ctx.font = `800 62px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.textBaseline = 'top';
+        for (const line of titleLines) {
+          ctx.fillText(line, x, curY);
+          curY += 76;
+        }
+
+        // Subtitle
+        curY += 14;
+        ctx.font = `400 22px ${FONT_SANS}`;
+        ctx.fillStyle = '#475569';
+        for (const d of descLines) {
+          ctx.fillText(d, x, curY);
+          curY += 34;
+        }
+
+        ctx.restore();
+      }
+
+      // Draw Periodic Table App Icon (rounded white squircle with H / C / Ar / Sparkle quad)
+      function drawAppIcon(cx, cy, size = 112, scale = 1) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
+        const half = size / 2;
+        fillCard(-half, -half, size, size, size * 0.24, '#ffffff', 'rgba(15,23,42,0.09)', 0.13, 18, 42);
+
+        const pad = size * 0.14;
+        const gap = size * 0.06;
+        const cell = (size - pad * 2 - gap) / 2;
+        const x0 = -half + pad;
+        const y0 = -half + pad;
+
+        const quads = [
+          { x: x0, y: y0, bg: '#1e3a5f', border: '#4f92ff', sym: 'H', num: '1', tc: '#eef5ff' },
+          { x: x0 + cell + gap, y: y0, bg: '#171923', border: '#334155', sym: '✦', num: '4', tc: '#93c5fd' },
+          { x: x0, y: y0 + cell + gap, bg: '#382352', border: '#a86af9', sym: 'C', num: '6', tc: '#f6edff' },
+          { x: x0 + cell + gap, y: y0 + cell + gap, bg: '#163d3b', border: '#2dd4bf', sym: 'Ar', num: '18', tc: '#e6fffb' },
+        ];
+        for (const q of quads) {
+          rr(q.x, q.y, cell, cell, cell * 0.24);
+          ctx.fillStyle = q.bg;
+          ctx.fill();
+          ctx.strokeStyle = q.border;
+          ctx.lineWidth = Math.max(1.2, size * 0.016);
+          ctx.stroke();
+
+          ctx.fillStyle = q.tc;
+          ctx.font = `700 ${cell * 0.44}px ${FONT_SANS}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(q.sym, q.x + cell * 0.5, q.y + cell * 0.56);
+        }
+        ctx.restore();
+      }
+
+      // Draw macOS Arrow Cursor + optional click ripple
+      function drawCursor(x, y, clickPulse = 0, rippleProg = -1, accent = '#3b82f6') {
+        if (rippleProg >= 0 && rippleProg <= 1) {
+          ctx.save();
+          const r = lerp(8, 52, easeOutCubic(rippleProg));
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.strokeStyle = accent;
+          ctx.globalAlpha = (1 - rippleProg) * 0.65;
+          ctx.lineWidth = 3 * (1 - rippleProg * 0.5);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.save();
+        ctx.translate(x, y);
+        const sc = 1 - Math.sin(clamp(clickPulse) * Math.PI) * 0.16;
+        ctx.scale(sc, sc);
+        ctx.shadowColor = 'rgba(15,23,42,0.28)';
+        ctx.shadowBlur = 12;
+        ctx.shadowOffsetY = 4;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 27);
+        ctx.lineTo(7.2, 20.5);
+        ctx.lineTo(12.2, 31.5);
+        ctx.lineTo(16.8, 29.4);
+        ctx.lineTo(11.8, 18.5);
+        ctx.lineTo(20.5, 18.5);
+        ctx.closePath();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Theme helper for elements
+      function getModelTheme(sym) {
+        if (sym === 'H') return { accent: '#4f92ff', bg: '#1c3352', pillBg: '#eff6ff', pillBorder: '#93c5fd', pillText: '#1d4ed8', dot: '#3b82f6', title: 'Gemini 4 Hydrogen', sub: 'Everyday help · 日常全能秒回' };
+        if (sym === 'C') return { accent: '#a86af9', bg: '#332249', pillBg: '#f5f3ff', pillBorder: '#c4b5fd', pillText: '#6d28d9', dot: '#8b5cf6', title: 'Gemini 4 Carbon', sub: 'Most complex work · 深度复杂推理' };
+        if (sym === 'Ar') return { accent: '#2dd4bf', bg: '#163b39', pillBg: '#f0fdfa', pillBorder: '#5eead4', pillText: '#0f766e', dot: '#14b8a6', title: 'Gemini 4 Argon', sub: 'Code and analysis · 代码与严谨分析' };
+        const el = BY_SYM[sym] || { name: sym, nameZh: '', z: 0 };
+        return { accent: '#94a3b8', bg: '#252834', pillBg: '#f1f5f9', pillBorder: '#cbd5e1', pillText: '#334155', dot: '#64748b', title: `Gemini 4 ${el.name}`, sub: 'Coming soon · 即将推出彩蛋预览', comingSoon: true };
+      }
+
+      // Draw the Dark Sleek 118-Element Periodic Table Modal Card
+      // Returns geometry lookup `{ tileCenter(sym), cardRect, olderRects }` so cursor & popovers align 100% pixel-accurately!
+      function drawPeriodicTableModal(opts = {}) {
+        const {
+          x = 700,
+          y = 140,
+          w = 1110,
+          h = 780,
+          activeSym = 'H',
+          thinking = 'High',
+          hoverSym = null,
+          waveTime = -1,
+          showPopover = true,
+          activeOtherId = null,
+          highlightRingSym = null,
+          ringPulse = 0,
+        } = opts;
+
+        // Outer ambient white frame + inner obsidian periodic modal (high-contrast luxury look!)
+        fillCard(x - 10, y - 10, w + 20, h + 20, 32, 'rgba(255,255,255,0.85)', 'rgba(15,23,42,0.08)', 0.12, 28, 68);
+        fillCard(x, y, w, h, 24, '#15171e', 'rgba(255,255,255,0.10)', 0, 0, 0);
+
+        // Top bar: ✦ Model periodic table  |  legend  |  ✕
+        ctx.save();
+        ctx.font = `600 18px ${FONT_SANS}`;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✦  Model periodic table', x + 34, y + 38);
+
+        // Legend in top-right area
+        ctx.font = `500 14px ${FONT_SANS}`;
+        ctx.fillStyle = '#93c5fd';
+        ctx.beginPath();
+        ctx.arc(x + w - 260, y + 38, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText('3 released', x + w - 248, y + 38);
+
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(x + w - 148, y + 38, 4.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Coming soon', x + w - 136, y + 38);
+
+        // Close button
+        ctx.fillStyle = '#64748b';
+        ctx.font = `500 18px ${FONT_SANS}`;
+        ctx.fillText('✕', x + w - 36, y + 38);
+
+        // Center hero header inside the periodic table gap (cols 3..12, rows 1..3)
+        ctx.font = `700 40px ${FONT_SANS}`;
+        ctx.fillStyle = '#f8fafc';
+        ctx.textAlign = 'center';
+        ctx.fillText('Gemini 4', x + w * 0.45, y + 120);
+        ctx.font = `400 15px ${FONT_SANS}`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Select an element model & thinking depth', x + w * 0.45, y + 154);
+
+        // Grid metrics (18 cols, rows 1..7 + gap + rows 9..10)
+        const padX = 32;
+        const gridTop = y + 74;
+        const gap = 5.5;
+        const cellW = (w - padX * 2 - gap * 17) / 18;
+        const lnGap = 14;
+        const availGridH = h - 74 - 76 - lnGap;
+        const cellH = Math.min(51, Math.max(34, (availGridH - gap * 8) / 9));
+
+        const tileMap = {};
+
+        const rowY = (r) => {
+          if (r <= 7) return gridTop + (r - 1) * (cellH + gap);
+          return gridTop + 7 * (cellH + gap) + lnGap + (r - 9) * (cellH + gap);
+        };
+
+        // Lanthanide / Actinide placeholder markers at (6,3) and (7,3)
+        for (const [r, label] of [[6, '57-71'], [7, '89-103']]) {
+          const tx = x + padX + 2 * (cellW + gap);
+          const ty = rowY(r);
+          rr(tx, ty, cellW, cellH, 8);
+          ctx.fillStyle = 'rgba(255,255,255,0.025)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = '#64748b';
+          ctx.font = `600 10px ${FONT_MONO}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, tx + cellW / 2, ty + cellH / 2);
+        }
+
+        // Draw all 118 elements
+        for (const el of ELEMENTS) {
+          const tx = x + padX + (el.col - 1) * (cellW + gap);
+          const ty = rowY(el.row);
+          tileMap[el.symbol] = { x: tx, y: ty, w: cellW, h: cellH, cx: tx + cellW / 2, cy: ty + cellH / 2, el };
+
+          const isSelected = !activeOtherId && (activeSym === el.symbol);
+          const isHover = hoverSym === el.symbol;
+
+          // Wave shimmer effect in Scene 01
+          let shimmer = 0;
+          if (waveTime >= 0) {
+            const diag = (el.col * 0.055 + el.row * 0.075);
+            const d = Math.abs(waveTime - diag);
+            if (d < 0.28) shimmer = Math.cos((d / 0.28) * (Math.PI / 2)) * 0.35;
+          }
+
+          if (el.released) {
+            const c = el.model.colors;
+            ctx.save();
+            if (isSelected || isHover) {
+              ctx.shadowColor = c.tileBorder;
+              ctx.shadowBlur = isSelected ? 22 : 14;
+            }
+            rr(tx, ty, cellW, cellH, 9);
+            ctx.fillStyle = isSelected ? c.pillActiveBg : c.tileBg;
+            ctx.fill();
+            ctx.strokeStyle = c.tileBorder;
+            ctx.lineWidth = isSelected ? 2.4 : 1.5;
+            ctx.stroke();
+            ctx.restore();
+
+            // Atomic number + dot
+            ctx.font = `600 10.5px ${FONT_MONO}`;
+            ctx.fillStyle = c.tileNumber;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(String(el.z), tx + 6, ty + 5);
+
+            ctx.beginPath();
+            ctx.arc(tx + cellW - 7.5, ty + 9, 2.8, 0, Math.PI * 2);
+            ctx.fillStyle = c.dot;
+            ctx.fill();
+
+            // Symbol
+            ctx.font = `700 20px ${FONT_SANS}`;
+            ctx.fillStyle = c.tileText;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(el.symbol, tx + cellW / 2, ty + cellH * 0.62);
+          } else {
+            rr(tx, ty, cellW, cellH, 8);
+            const baseAlpha = isSelected || isHover ? 0.16 : (0.048 + shimmer * 0.18);
+            ctx.fillStyle = `rgba(255, 255, 255, ${baseAlpha})`;
+            ctx.fill();
+            ctx.strokeStyle = isSelected || isHover
+              ? 'rgba(226, 232, 240, 0.75)'
+              : `rgba(255, 255, 255, ${0.07 + shimmer * 0.25})`;
+            ctx.lineWidth = isSelected ? 1.8 : 1;
+            ctx.stroke();
+
+            ctx.font = `500 9.5px ${FONT_MONO}`;
+            ctx.fillStyle = isSelected ? '#cbd5e1' : 'rgba(148, 163, 184, 0.68)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(String(el.z), tx + 5, ty + 4.5);
+
+            ctx.font = `600 17px ${FONT_SANS}`;
+            ctx.fillStyle = isSelected || isHover ? '#f8fafc' : `rgba(203, 213, 225, ${0.78 + shimmer * 0.22})`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(el.symbol, tx + cellW / 2, ty + cellH * 0.63);
+          }
+
+          // Target highlight ring (for keyboard jump scene)
+          if (highlightRingSym === el.symbol && ringPulse > 0) {
+            ctx.save();
+            const pad = 4 + ringPulse * 8;
+            rr(tx - pad, ty - pad, cellW + pad * 2, cellH + pad * 2, 12);
+            ctx.strokeStyle = '#2dd4bf';
+            ctx.lineWidth = 2.8;
+            ctx.globalAlpha = 1 - ringPulse * 0.45;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        // Bottom Older / Other models bar
+        const footerY = y + h - 54;
+        ctx.font = `600 12px ${FONT_MONO}`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('OTHER MODELS', x + padX, footerY);
+
+        const chips = [
+          { id: '3.1-pro', label: '3.1 Pro' },
+          { id: '3.8-flash', label: '3.8 Flash' },
+          { id: 'orchestrator', label: 'Orchestrator' },
+          { id: 'claude-sonnet', label: 'Claude Sonnet 4.6' },
+          { id: 'claude-opus', label: 'Claude Opus 4.6' },
+          { id: 'gpt-oss', label: 'GPT-OSS 120B' },
+        ];
+        const chipRects = {};
+        let cx = x + padX + 122;
+        ctx.font = `500 13px ${FONT_SANS}`;
+        for (const ch of chips) {
+          const cw = ctx.measureText(ch.label).width + 26;
+          const chH = 30;
+          const isAct = activeOtherId === ch.id;
+          rr(cx, footerY - chH / 2, cw, chH, 15);
+          ctx.fillStyle = isAct ? 'rgba(59, 130, 246, 0.24)' : 'rgba(255, 255, 255, 0.06)';
+          ctx.fill();
+          ctx.strokeStyle = isAct ? '#60a5fa' : 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = isAct ? 1.6 : 1;
+          ctx.stroke();
+
+          ctx.fillStyle = isAct ? '#eff6ff' : '#cbd5e1';
+          ctx.textAlign = 'center';
+          ctx.fillText(ch.label, cx + cw / 2, footerY);
+          chipRects[ch.id] = { x: cx, y: footerY - chH / 2, w: cw, h: chH, cx: cx + cw / 2, cy: footerY };
+          cx += cw + 10;
+        }
+
+        // Floating Popover Card for activeSym
+        let popoverInfo = null;
+        if (showPopover && activeSym && tileMap[activeSym] && !activeOtherId) {
+          const anchor = tileMap[activeSym];
+          const el = anchor.el;
+          const theme = getModelTheme(activeSym);
+          const pw = el.released ? 316 : 268;
+          const ph = el.released ? 168 : 114;
+
+          let px = anchor.cx - pw / 2;
+          px = clamp(px, x + 28, x + w - pw - 28);
+          let py = anchor.y + anchor.h + 14;
+          if (py + ph > y + h - 68) {
+            py = anchor.y - ph - 14;
+          }
+
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.52)';
+          ctx.shadowBlur = 34;
+          ctx.shadowOffsetY = 14;
+          rr(px, py, pw, ph, 18);
+          ctx.fillStyle = '#202430';
+          ctx.fill();
+          ctx.restore();
+
+          rr(px, py, pw, ph, 18);
+          ctx.strokeStyle = el.released ? theme.accent : 'rgba(255,255,255,0.18)';
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+
+          // Title & atomic badge
+          ctx.beginPath();
+          ctx.arc(px + 22, py + 28, 5, 0, Math.PI * 2);
+          ctx.fillStyle = theme.accent;
+          ctx.fill();
+
+          ctx.font = `700 18px ${FONT_SANS}`;
+          ctx.fillStyle = '#f8fafc';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`Gemini 4 ${el.name}`, px + 36, py + 28);
+
+          ctx.font = `600 12px ${FONT_MONO}`;
+          ctx.fillStyle = '#94a3b8';
+          ctx.textAlign = 'right';
+          ctx.fillText(`#${el.z} ${el.symbol}`, px + pw - 18, py + 28);
+
+          ctx.font = `400 14px ${FONT_SANS}`;
+          ctx.fillStyle = '#cbd5e1';
+          ctx.textAlign = 'left';
+          if (el.released) {
+            ctx.fillText(`${el.model.tagline} · ${el.model.taglineZh}`, px + 20, py + 56);
+
+            // Thinking level label + segmented control
+            ctx.font = `600 11.5px ${FONT_MONO}`;
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('THINKING LEVEL', px + 20, py + 90);
+
+            const levels = ['Low', 'Medium', 'High', 'XHigh'];
+            const segX = px + 18;
+            const segY = py + 108;
+            const segW = pw - 36;
+            const segH = 38;
+            rr(segX, segY, segW, segH, 11);
+            ctx.fillStyle = '#141720';
+            ctx.fill();
+
+            const itemW = (segW - 8) / levels.length;
+            const levelRects = {};
+            levels.forEach((lv, idx) => {
+              const lx = segX + 4 + idx * itemW;
+              const ly = segY + 4;
+              const lw = itemW;
+              const lh = segH - 8;
+              const activeLv = thinking === lv;
+              if (activeLv) {
+                rr(lx, ly, lw, lh, 8);
+                ctx.fillStyle = theme.bg;
+                ctx.fill();
+                ctx.strokeStyle = theme.accent;
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
+              }
+              ctx.font = `${activeLv ? 700 : 500} 12.5px ${FONT_SANS}`;
+              ctx.fillStyle = activeLv ? '#ffffff' : '#94a3b8';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(lv, lx + lw / 2, ly + lh / 2);
+              levelRects[lv] = { cx: lx + lw / 2, cy: ly + lh / 2 };
+            });
+
+            popoverInfo = { x: px, y: py, w: pw, h: ph, levelRects };
+          } else {
+            ctx.fillText(`${el.nameZh}元素 · 尚未发布模型`, px + 20, py + 58);
+            rr(px + 20, py + 76, 112, 24, 12);
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.16)';
+            ctx.fill();
+            ctx.font = `600 11.5px ${FONT_MONO}`;
+            ctx.fillStyle = '#cbd5e1';
+            ctx.textAlign = 'center';
+            ctx.fillText('COMING SOON', px + 76, py + 88);
+            popoverInfo = { x: px, y: py, w: pw, h: ph, levelRects: {} };
+          }
+        }
+
+        ctx.restore();
+        return { tileMap, chipRects, popoverInfo };
+      }
+
+      // Draw Gemini / Antigravity Prompt Input Bar (used in Intro Hook & zoom scenes)
+      function drawPromptBar(cx, cy, w, activeSym = 'H', thinking = 'High') {
+        const h = 128;
+        const x = cx - w / 2;
+        const y = cy - h / 2;
+        const theme = getModelTheme(activeSym);
+
+        fillCard(x, y, w, h, 28, '#ffffff', 'rgba(15,23,42,0.10)', 0.10, 20, 50);
+
+        // Input placeholder
+        ctx.font = `400 22px ${FONT_SANS}`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Ask Gemini 4 anything, @ to mention, /periodic-model-picker...', x + 32, y + 42);
+
+        // Bottom toolbar inside prompt bar: [● Hydrogen · High ⌄]  [✦ 118 Elements]  [⚡ Local]
+        const pillX = x + 28;
+        const pillY = y + 76;
+        const label = theme.comingSoon
+          ? `○  ${BY_SYM[activeSym]?.name || activeSym}  ⌄`
+          : `${ BY_SYM[activeSym]?.name || 'Hydrogen' } · ${thinking}  ⌄`;
+        ctx.font = `600 16px ${FONT_SANS}`;
+        const pillW = ctx.measureText(label).width + 52;
+        const pillH = 38;
+
+        rr(pillX, pillY, pillW, pillH, 19);
+        ctx.fillStyle = theme.pillBg;
+        ctx.fill();
+        ctx.strokeStyle = theme.pillBorder;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        if (!theme.comingSoon) {
+          ctx.beginPath();
+          ctx.arc(pillX + 20, pillY + pillH / 2, 5, 0, Math.PI * 2);
+          ctx.fillStyle = theme.dot;
+          ctx.fill();
+          ctx.fillStyle = theme.pillText;
+          ctx.fillText(label, pillX + 34, pillY + pillH / 2 + 0.5);
+        } else {
+          ctx.fillStyle = theme.pillText;
+          ctx.fillText(label, pillX + 20, pillY + pillH / 2 + 0.5);
+        }
+
+        // Adjacent status badges (subtle nod to reference prompt bar!)
+        let bx = pillX + pillW + 14;
+        const badges = ['✦ 118 IUPAC Elements', '⚡ Alt + P 快捷键', '🔒 Shadow DOM'];
+        ctx.font = `500 14px ${FONT_SANS}`;
+        for (const b of badges) {
+          const bw = ctx.measureText(b).width + 26;
+          rr(bx, pillY + 2, bw, 34, 17);
+          ctx.fillStyle = '#f8fafc';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(15,23,42,0.07)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = '#475569';
+          ctx.fillText(b, bx + 13, pillY + 19);
+          bx += bw + 10;
+        }
+
+        // Send circle button
+        ctx.beginPath();
+        ctx.arc(x + w - 38, pillY + 19, 19, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `700 16px ${FONT_SANS}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('↑', x + w - 38, pillY + 19);
+
+        return { pillCx: pillX + pillW / 2, pillCy: pillY + pillH / 2, pillX, pillY, pillW, pillH };
+      }
+
+      // =========================================================================
+      // SCENE RENDERERS (31 Bars @ 124 BPM = 60.00s)
+      // =========================================================================
+
+      // Bars 0..3 (0.00s - 5.81s): Intro Hook + Zoom out + Open Periodic Table
+      function sceneIntro(t) {
+        const localBar = t / BAR; // 0 .. 3
+        drawStudioBackground('rgba(59,130,246,0.09)', W * 0.5, H * 0.58);
+
+        // Camera zoom: Bars 0..1.4 tight macro on prompt bar (scale 1.72), Bars 1.4..2.4 zoom out to 1.0
+        const zoomProg = easeInOutCubic(invLerp(1.25, 2.25, localBar));
+        const camScale = lerp(1.68, 1.0, zoomProg);
+        const camY = lerp(-215, 0, zoomProg);
+
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(camScale, camScale);
+        ctx.translate(-W / 2, -H / 2 + camY);
+
+        // App window shell (revealed as camera zooms out)
+        if (zoomProg > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = zoomProg;
+          fillCard(170, 96, 1580, 888, 28, '#fcfdff', 'rgba(15,23,42,0.08)', 0.09, 26, 68);
+          // Window traffic lights + title
+          const dots = ['#ef4444', '#f59e0b', '#10b981'];
+          dots.forEach((c, i) => {
+            ctx.beginPath();
+            ctx.arc(206 + i * 22, 128, 6, 0, Math.PI * 2);
+            ctx.fillStyle = c;
+            ctx.fill();
+          });
+          ctx.font = `500 14px ${FONT_SANS}`;
+          ctx.fillStyle = '#64748b';
+          ctx.textAlign = 'center';
+          ctx.fillText('Gemini 4  ·  Google Antigravity Workspace', W / 2, 128);
+          ctx.restore();
+        }
+
+        // Hook headline above prompt bar during Bars 0..1.6
+        if (localBar < 1.85) {
+          const headIn = easeOutQuint(invLerp(0.08, 0.55, localBar));
+          const headOut = 1 - easeInOutCubic(invLerp(1.3, 1.8, localBar));
+          ctx.save();
+          ctx.globalAlpha = headIn * headOut;
+          ctx.translate(0, (1 - headIn) * 18);
+          ctx.font = `800 38px ${FONT_SANS}`;
+          ctx.fillStyle = '#0f172a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('118 种元素，尽在眼前。', W / 2, 655);
+          ctx.restore();
+        }
+
+        const pb = drawPromptBar(W / 2, 815, 1080, 'H', 'High');
+
+        // At Bar 2.5 (t = 4.84s, Beat 10), cursor clicks Hydrogen pill -> Periodic Table modal pops open!
+        const clickBar = 2.45;
+        const modalProg = springPop(invLerp(clickBar, clickBar + 0.48, localBar));
+        if (modalProg > 0.01) {
+          ctx.save();
+          const mx = 405, my = 152, mw = 1110, mh = 620;
+          ctx.translate(W / 2, my + mh);
+          ctx.scale(lerp(0.86, 1, modalProg), lerp(0.86, 1, modalProg));
+          ctx.translate(-W / 2, -(my + mh));
+          ctx.globalAlpha = clamp(invLerp(clickBar, clickBar + 0.16, localBar));
+          drawPeriodicTableModal({ x: mx, y: my, w: mw, h: 740, activeSym: 'H', thinking: 'High', showPopover: false });
+          ctx.restore();
+        }
+
+        // Animated cursor gliding in from Bar 1.8 -> clicking pb.pillCx, pb.pillCy at Bar 2.45
+        if (localBar >= 1.75) {
+          const moveP = easeInOutCubic(invLerp(1.75, 2.38, localBar));
+          const curX = lerp(pb.pillCx + 240, pb.pillCx + 18, moveP);
+          const curY = lerp(pb.pillCy + 110, pb.pillCy + 4, moveP);
+          const clickPulse = invLerp(clickBar - 0.05, clickBar + 0.12, localBar);
+          const ripple = localBar >= clickBar ? invLerp(clickBar, clickBar + 0.35, localBar) : -1;
+          drawCursor(curX, curY, clickPulse < 1 ? clickPulse : 0, ripple, '#3b82f6');
+        }
+
+        ctx.restore();
+      }
+
+      // Bars 3..4 (5.81s - 7.74s): Minimal Apple-Keynote Brand Title Card
+      function sceneBrandTitle(t) {
+        const local = (t - 3 * BAR) / BAR; // 0 .. 1
+        drawStudioBackground('rgba(59,130,246,0.08)', W / 2, H * 0.45);
+
+        const iconScale = springPop(invLerp(0.02, 0.55, local));
+        drawAppIcon(W / 2, H * 0.40, 118, iconScale);
+
+        const textP = easeOutQuint(invLerp(0.14, 0.62, local));
+        ctx.save();
+        ctx.globalAlpha = textP;
+        ctx.translate(0, (1 - textP) * 20);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = `800 72px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('Model Periodic Table', W / 2, H * 0.56);
+
+        ctx.font = `500 22px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('v1.0.0  正式发布   ·   Created by Meow', W / 2, H * 0.645);
+        ctx.restore();
+      }
+
+      // Bars 4..7 (7.74s - 13.55s): 01 · 全表总览
+      function scene01Overview(t) {
+        const local = (t - 4 * BAR) / (3 * BAR); // 0 .. 1
+        drawStudioBackground('rgba(59,130,246,0.08)', 1260, 520);
+        drawEditorialHUD(t, 1, 9, easeOutCubic(local * 4));
+
+        drawLeftEditorial(
+          '01',
+          '全表排布',
+          ['元素周期表，', '就是模型台。'],
+          ['从 1 号氢到 118 号气奥完整排布，', '镧系与锕系独立成列，3 款主力模型高亮常驻。'],
+          local * 3.2
+        );
+
+        const cardIn = easeOutQuint(local * 2.8);
+        ctx.save();
+        ctx.translate((1 - cardIn) * 48, 0);
+        ctx.globalAlpha = clamp(local * 4);
+        drawPeriodicTableModal({
+          x: 710,
+          y: 150,
+          w: 1110,
+          h: 770,
+          activeSym: 'H',
+          thinking: 'Medium',
+          showPopover: false,
+          waveTime: lerp(-0.2, 2.0, invLerp(0.12, 0.88, local)),
+        });
+        ctx.restore();
+      }
+
+      // Bars 7..10.5 (13.55s - 20.32s): 02 · 三大主力 (Hydrogen -> Carbon -> Argon)
+      function scene02ReleasedTrio(t) {
+        const localSec = t - 7 * BAR;
+        const dur = 3.5 * BAR; // 6.77s
+        const p = localSec / dur;
+
+        // Click timestamps relative to scene start: H at 0.97s, C at 2.90s, Ar at 4.84s
+        let activeSym = 'H';
+        let accentGlow = 'rgba(59,130,246,0.10)';
+        if (localSec >= 4.84) {
+          activeSym = 'Ar';
+          accentGlow = 'rgba(20,184,166,0.11)';
+        } else if (localSec >= 2.90) {
+          activeSym = 'C';
+          accentGlow = 'rgba(139,92,246,0.11)';
+        }
+
+        drawStudioBackground(accentGlow, 1280, 520);
+        drawEditorialHUD(t, 2, 9, 1);
+
+        drawLeftEditorial(
+          '02',
+          '三大主力',
+          ['氢、碳、氩，', '各司其职。'],
+          ['日常秒回选 Hydrogen，复杂推理交 Carbon，', '代码工程与严谨分析直达 Argon。'],
+          p * 4
+        );
+
+        const layout = drawPeriodicTableModal({
+          x: 710,
+          y: 150,
+          w: 1110,
+          h: 770,
+          activeSym,
+          thinking: activeSym === 'H' ? 'Medium' : 'High',
+          showPopover: true,
+        });
+
+        // Cursor choreography: H -> C -> Ar
+        const ptH = layout.tileMap['H'];
+        const ptC = layout.tileMap['C'];
+        const ptAr = layout.tileMap['Ar'];
+        let cx = ptH.cx, cy = ptH.cy, ripple = -1, pulse = 0, rColor = '#4f92ff';
+
+        if (localSec < 2.2) {
+          const m = easeInOutCubic(invLerp(0.2, 0.92, localSec));
+          cx = lerp(ptH.cx + 120, ptH.cx, m);
+          cy = lerp(ptH.cy + 90, ptH.cy, m);
+          if (localSec >= 0.95) {
+            ripple = invLerp(0.95, 1.55, localSec);
+            pulse = invLerp(0.92, 1.12, localSec);
+          }
+        } else if (localSec < 4.15) {
+          const m = easeInOutCubic(invLerp(2.2, 2.88, localSec));
+          cx = lerp(ptH.cx, ptC.cx, m);
+          cy = lerp(ptH.cy, ptC.cy, m);
+          rColor = '#a86af9';
+          if (localSec >= 2.90) {
+            ripple = invLerp(2.90, 3.50, localSec);
+            pulse = invLerp(2.86, 3.08, localSec);
+          }
+        } else {
+          const m = easeInOutCubic(invLerp(4.15, 4.82, localSec));
+          cx = lerp(ptC.cx, ptAr.cx, m);
+          cy = lerp(ptC.cy, ptAr.cy, m);
+          rColor = '#2dd4bf';
+          if (localSec >= 4.84) {
+            ripple = invLerp(4.84, 5.44, localSec);
+            pulse = invLerp(4.80, 5.02, localSec);
+          }
+        }
+        drawCursor(cx, cy, pulse < 1 ? pulse : 0, ripple <= 1 ? ripple : -1, rColor);
+      }
+
+      // Bars 10.5..13.5 (20.32s - 26.13s): 03 · 思考深度 (Low -> Medium -> High -> XHigh)
+      function scene03ThinkingLevels(t) {
+        const localSec = t - 10.5 * BAR;
+        drawStudioBackground('rgba(59,130,246,0.10)', 1290, 520);
+        drawEditorialHUD(t, 3, 9, 1);
+
+        drawLeftEditorial(
+          '03',
+          '思考深度',
+          ['算力深浅，', '随手切换。'],
+          ['支持 Low / Medium / High / XHigh 四档思考等级，', '精准映射 Antigravity 与 Gemini Web 模型参数。'],
+          localSec * 1.6
+        );
+
+        // Step clicks at 0.97s (Low), 2.13s (Medium), 3.29s (High), 4.45s (XHigh)
+        const steps = [
+          { t: 0.97, lv: 'Low', id: 'gemini-4-hydrogen-low', desc: '极速响应 · 轻量问答与翻译' },
+          { t: 2.13, lv: 'Medium', id: 'gemini-4-hydrogen-medium', desc: '均衡推理 · 日常主力默认档' },
+          { t: 3.29, lv: 'High', id: 'gemini-4-hydrogen-high', desc: '深度思考 · 多步逻辑拆解' },
+          { t: 4.45, lv: 'XHigh', id: 'gemini-4-hydrogen-xhigh', desc: '满血算力 · 极限长链推理 (Antigravity)' },
+        ];
+        let curStep = steps[0];
+        for (const s of steps) {
+          if (localSec >= s.t) curStep = s;
+        }
+
+        // Large zoomed detail card on the right (matching Reference Scene 02/06 close-up card style!)
+        const cx = 770, cy = 220, cw = 980, ch = 610;
+        fillCard(cx, cy, cw, ch, 28, '#ffffff', 'rgba(15,23,42,0.08)', 0.10, 24, 62);
+
+        // Header inside white card
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx + 52, cy + 62, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fill();
+
+        ctx.font = `800 32px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Gemini 4 Hydrogen', cx + 74, cy + 62);
+
+        rr(cx + cw - 166, cy + 42, 118, 40, 20);
+        ctx.fillStyle = '#eff6ff';
+        ctx.fill();
+        ctx.font = `700 16px ${FONT_MONO}`;
+        ctx.fillStyle = '#1d4ed8';
+        ctx.textAlign = 'center';
+        ctx.fillText('#1  H  氢', cx + cw - 107, cy + 62);
+
+        // Divider
+        ctx.strokeStyle = 'rgba(15,23,42,0.07)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx + 44, cy + 114);
+        ctx.lineTo(cx + cw - 44, cy + 114);
+        ctx.stroke();
+
+        // Segmented Thinking Selector (Extra large & crisp)
+        ctx.font = `700 15px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.textAlign = 'left';
+        ctx.fillText('THINKING LEVEL  ·  思考预算档位', cx + 48, cy + 162);
+
+        const segX = cx + 48, segY = cy + 194, segW = cw - 96, segH = 84;
+        rr(segX, segY, segW, segH, 20);
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fill();
+
+        const lvs = ['Low', 'Medium', 'High', 'XHigh'];
+        const iw = (segW - 16) / 4;
+        const lvCenters = {};
+        lvs.forEach((lv, i) => {
+          const lx = segX + 8 + i * iw;
+          const ly = segY + 8;
+          const lw = iw;
+          const lh = segH - 16;
+          const isAct = curStep.lv === lv;
+          if (isAct) {
+            fillCard(lx, ly, lw, lh, 14, '#1e3a8a', '#3b82f6', 0.14, 8, 20);
+          }
+          ctx.font = `${isAct ? 700 : 600} 22px ${FONT_SANS}`;
+          ctx.fillStyle = isAct ? '#ffffff' : '#475569';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(lv, lx + lw / 2, ly + lh / 2);
+          lvCenters[lv] = { x: lx + lw / 2, y: ly + lh / 2 };
+        });
+
+        // Live Model ID & capability meter below
+        const boxY = cy + 320;
+        rr(cx + 48, boxY, cw - 96, 126, 20);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(15,23,42,0.07)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.font = `600 14px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.textAlign = 'left';
+        ctx.fillText('ACTIVE MODEL ID', cx + 76, boxY + 38);
+
+        ctx.font = `700 26px ${FONT_MONO}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(curStep.id, cx + 76, boxY + 80);
+
+        ctx.font = `500 19px ${FONT_SANS}`;
+        ctx.fillStyle = '#2563eb';
+        ctx.textAlign = 'right';
+        ctx.fillText(curStep.desc, cx + cw - 76, boxY + 80);
+
+        // Reasoning depth progress bar
+        const barIdx = lvs.indexOf(curStep.lv) + 1;
+        const meterY = cy + 496;
+        ctx.font = `600 15px ${FONT_SANS}`;
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'left';
+        ctx.fillText('推理深度预算', cx + 48, meterY);
+        ctx.font = `700 16px ${FONT_MONO}`;
+        ctx.fillStyle = '#1d4ed8';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${barIdx * 25}%`, cx + cw - 48, meterY);
+
+        rr(cx + 48, meterY + 22, cw - 96, 14, 7);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fill();
+        rr(cx + 48, meterY + 22, (cw - 96) * (barIdx * 0.25), 14, 7);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fill();
+        ctx.restore();
+
+        // Cursor smoothly moving across Low -> Medium -> High -> XHigh
+        let curPos = lvCenters['Low'];
+        let ripple = -1;
+        for (let i = 0; i < steps.length; i++) {
+          const s = steps[i];
+          const prev = i === 0 ? { x: lvCenters['Low'].x - 80, y: lvCenters['Low'].y + 80 } : lvCenters[steps[i - 1].lv];
+          const target = lvCenters[s.lv];
+          if (localSec <= s.t) {
+            const m = easeInOutCubic(invLerp(s.t - 0.65, s.t, localSec));
+            curPos = { x: lerp(prev.x, target.x, m), y: lerp(prev.y, target.y, m) };
+            break;
+          } else {
+            curPos = target;
+            if (localSec - s.t < 0.5) ripple = (localSec - s.t) / 0.5;
+          }
+        }
+        drawCursor(curPos.x, curPos.y + 10, 0, ripple, '#3b82f6');
+      }
+
+      // Bars 13.5..16.5 (26.13s - 31.94s): 04 · 彩蛋探索 (Full-bleed table + lower-left floating white card!)
+      function scene04ComingSoon(t) {
+        const localSec = t - 13.5 * BAR;
+        drawStudioBackground('rgba(100,116,139,0.09)', W / 2, H * 0.45);
+        drawEditorialHUD(t, 4, 9, 1);
+
+        // Clicks on 26 Fe (0.97s), 79 Au (2.67s), 47 Ag (4.37s)
+        let activeSym = 'Fe';
+        if (localSec >= 4.37) activeSym = 'Ag';
+        else if (localSec >= 2.67) activeSym = 'Au';
+
+        const layout = drawPeriodicTableModal({
+          x: 340,
+          y: 112,
+          w: 1240,
+          h: 775,
+          activeSym,
+          showPopover: true,
+        });
+
+        // Floating lower-left editorial card (exact homage to Scene 04 in reference video!)
+        const fx = 92, fy = 716, fw = 590, fh = 210;
+        const cardIn = easeOutQuint(localSec * 1.8);
+        ctx.save();
+        ctx.translate(0, (1 - cardIn) * 24);
+        fillCard(fx, fy, fw, fh, 24, 'rgba(255,255,255,0.95)', 'rgba(15,23,42,0.09)', 0.13, 22, 54);
+
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(fx + 36, fy + 44);
+        ctx.lineTo(fx + 60, fy + 44);
+        ctx.stroke();
+
+        ctx.font = `700 16px ${FONT_SANS}`;
+        ctx.fillStyle = '#2563eb';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('04  ·  彩蛋探索', fx + 72, fy + 44);
+
+        ctx.font = `800 42px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('115 颗彩蛋，未发先至。', fx + 36, fy + 104);
+
+        ctx.font = `400 19px ${FONT_SANS}`;
+        ctx.fillStyle = '#475569';
+        ctx.fillText(`点击任意未发布元素（如 #26 Fe、#79 Au），即时预览专属徽章。`, fx + 36, fy + 160);
+        ctx.restore();
+
+        // Cursor moving Fe -> Au -> Ag
+        const targets = [
+          { t: 0.97, sym: 'Fe' },
+          { t: 2.67, sym: 'Au' },
+          { t: 4.37, sym: 'Ag' },
+        ];
+        let cPos = layout.tileMap['Fe'];
+        let ripple = -1;
+        for (let i = 0; i < targets.length; i++) {
+          const tg = targets[i];
+          const prev = i === 0 ? layout.tileMap['Cr'] : layout.tileMap[targets[i - 1].sym];
+          const dest = layout.tileMap[tg.sym];
+          if (localSec <= tg.t) {
+            const m = easeInOutCubic(invLerp(tg.t - 0.65, tg.t, localSec));
+            cPos = { cx: lerp(prev.cx, dest.cx, m), cy: lerp(prev.cy, dest.cy, m) };
+            break;
+          } else {
+            cPos = dest;
+            if (localSec - tg.t < 0.5) ripple = (localSec - tg.t) / 0.5;
+          }
+        }
+        drawCursor(cPos.cx, cPos.cy, 0, ripple, '#94a3b8');
+      }
+
+      // Bars 16.5..19.5 (31.94s - 37.74s): 05 · 键盘直达 (Alt+P & typing A -> r)
+      function scene05KeyboardJump(t) {
+        const localSec = t - 16.5 * BAR;
+        drawStudioBackground('rgba(20,184,166,0.10)', 1280, 500);
+        drawEditorialHUD(t, 5, 9, 1);
+
+        drawLeftEditorial(
+          '05',
+          '键盘直达',
+          ['敲下符号，', '瞬间锁定。'],
+          ['按下 Alt + P 随时呼出周期表；', '直接键入元素符号（如 A → r），自动高亮定位。'],
+          localSec * 1.8
+        );
+
+        const typedA = localSec >= 1.45;
+        const typedR = localSec >= 2.25;
+        const activeSym = typedR ? 'Ar' : 'H';
+        const ringPulse = typedR ? clamp((localSec - 2.25) / 1.4) : 0;
+
+        drawPeriodicTableModal({
+          x: 710,
+          y: 120,
+          w: 1110,
+          h: 720,
+          activeSym,
+          thinking: 'High',
+          showPopover: typedR,
+          highlightRingSym: typedR ? 'Ar' : null,
+          ringPulse,
+        });
+
+        // Tactile mechanical keycaps bar below the periodic table
+        const ky = 876;
+        const drawKey = (kx, label, pressed) => {
+          const kw = label.length > 2 ? 104 : 68;
+          const kh = 62;
+          const dy = pressed ? 4 : 0;
+          fillCard(kx, ky + dy, kw, kh, 14, pressed ? '#0f172a' : '#ffffff', pressed ? '#2dd4bf' : 'rgba(15,23,42,0.14)', 0.10, pressed ? 4 : 10, 22);
+          ctx.font = `700 22px ${FONT_MONO}`;
+          ctx.fillStyle = pressed ? '#5eead4' : '#0f172a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, kx + kw / 2, ky + dy + kh / 2);
+          return kw;
+        };
+
+        const altPressed = localSec > 0.3 && localSec < 1.1;
+        let kx = 940;
+        kx += drawKey(kx, 'Alt', altPressed) + 12;
+        ctx.font = `700 22px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('+', kx + 6, ky + 31);
+        kx += 26;
+        kx += drawKey(kx, 'P', altPressed) + 52;
+
+        kx += drawKey(kx, 'A', typedA) + 12;
+        kx += drawKey(kx, 'R', typedR) + 32;
+
+        if (typedA) {
+          rr(kx, ky + 10, 178, 42, 21);
+          ctx.fillStyle = '#f0fdfa';
+          ctx.fill();
+          ctx.strokeStyle = '#2dd4bf';
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+          ctx.font = `700 16px ${FONT_MONO}`;
+          ctx.fillStyle = '#0f766e';
+          ctx.textAlign = 'center';
+          ctx.fillText(typedR ? '→ #18 Ar 氩' : 'Jump: A_', kx + 89, ky + 31);
+        }
+      }
+
+      // Bars 19.5..22 (37.74s - 42.58s): 06 · 经典与多模同堂
+      function scene06OtherModels(t) {
+        const localSec = t - 19.5 * BAR;
+        drawStudioBackground('rgba(99,102,241,0.09)', 1280, 560);
+        drawEditorialHUD(t, 6, 9, 1);
+
+        drawLeftEditorial(
+          '06',
+          '全系同堂',
+          ['经典与多模，', '同台待命。'],
+          ['底部常驻 3.1 Pro、3.8 Flash、Orchestrator，', '以及 Claude 4.6 与 GPT-OSS，一键无缝切换。'],
+          localSec * 1.8
+        );
+
+        let activeOtherId = '3.8-flash';
+        if (localSec >= 3.1) activeOtherId = 'claude-opus';
+        else if (localSec >= 1.7) activeOtherId = 'orchestrator';
+
+        const layout = drawPeriodicTableModal({
+          x: 710,
+          y: 150,
+          w: 1110,
+          h: 770,
+          activeSym: null,
+          showPopover: false,
+          activeOtherId,
+        });
+
+        const seq = [
+          { t: 0.5, id: '3.8-flash' },
+          { t: 1.7, id: 'orchestrator' },
+          { t: 3.1, id: 'claude-opus' },
+        ];
+        let cur = layout.chipRects['3.8-flash'];
+        let ripple = -1;
+        for (let i = 0; i < seq.length; i++) {
+          const s = seq[i];
+          const prev = i === 0 ? layout.chipRects['3.1-pro'] : layout.chipRects[seq[i - 1].id];
+          const dest = layout.chipRects[s.id];
+          if (localSec <= s.t) {
+            const m = easeInOutCubic(invLerp(s.t - 0.5, s.t, localSec));
+            cur = { cx: lerp(prev.cx, dest.cx, m), cy: lerp(prev.cy, dest.cy, m) };
+            break;
+          } else {
+            cur = dest;
+            if (localSec - s.t < 0.45) ripple = (localSec - s.t) / 0.45;
+          }
+        }
+        drawCursor(cur.cx, cur.cy, 0, ripple, '#60a5fa');
+      }
+
+      // Bars 22..25 (42.58s - 48.39s): 07 · 三个入口 (Centered 3-card layout matching Ref 08!)
+      function scene07ThreeEntries(t) {
+        const localSec = t - 22 * BAR;
+        drawStudioBackground('rgba(59,130,246,0.07)', W / 2, H * 0.55);
+        drawEditorialHUD(t, 7, 9, 1);
+
+        // Centered header
+        const headP = easeOutQuint(localSec * 1.8);
+        ctx.save();
+        ctx.globalAlpha = clamp(localSec * 2.5);
+        ctx.translate(0, (1 - headP) * 20);
+        ctx.textAlign = 'center';
+        ctx.font = `700 17px ${FONT_SANS}`;
+        ctx.fillStyle = '#2563eb';
+        ctx.fillText('07  ·  多端覆盖', W / 2, 168);
+
+        ctx.font = `800 58px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('Gemini Web、Antigravity、油猴。', W / 2, 242);
+        ctx.restore();
+
+        const cards = [
+          {
+            badge: 'CHROME EXTENSION',
+            title: 'Gemini 网页版直嵌',
+            sub: 'gemini.google.com 原生对话栏注入模型胶囊',
+            accent: '#3b82f6',
+            mode: 'web',
+          },
+          {
+            badge: 'ANTIGRAVITY PLUGIN',
+            title: '原生 Sidecar + 技能',
+            sub: '支持侧边栏常驻、/periodic-model-picker 与 Swarm 切换',
+            accent: '#8b5cf6',
+            mode: 'agy',
+          },
+          {
+            badge: 'USERSCRIPT & PAGES',
+            title: '油猴一键装 · 在线试玩',
+            sub: 'Tampermonkey 点击直装，GitHub Pages 手机免装体验',
+            accent: '#14b8a6',
+            mode: 'script',
+          },
+        ];
+
+        const cw = 528, ch = 530, gap = 36;
+        const startX = (W - (cw * 3 + gap * 2)) / 2;
+        const cy = 340;
+
+        cards.forEach((c, idx) => {
+          const p = springPop(invLerp(idx * 0.14, idx * 0.14 + 0.65, localSec));
+          const cx = startX + idx * (cw + gap);
+          ctx.save();
+          ctx.translate(0, (1 - p) * 38);
+          ctx.globalAlpha = clamp((localSec - idx * 0.1) * 3);
+
+          fillCard(cx, cy, cw, ch, 26, '#ffffff', 'rgba(15,23,42,0.08)', 0.09, 20, 48);
+
+          // Badge pill
+          ctx.font = `700 12.5px ${FONT_MONO}`;
+          const bw = ctx.measureText(c.badge).width + 26;
+          rr(cx + 32, cy + 30, bw, 28, 14);
+          ctx.fillStyle = '#f1f5f9';
+          ctx.fill();
+          ctx.fillStyle = c.accent;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(c.badge, cx + 45, cy + 44);
+
+          // Mini UI Mockup Window inside card
+          const mx = cx + 32, my = cy + 78, mw = cw - 64, mh = 296;
+          rr(mx, my, mw, mh, 18);
+          ctx.fillStyle = c.mode === 'agy' ? '#13161f' : (c.mode === 'web' ? '#f8fafc' : '#18181b');
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(15,23,42,0.08)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          if (c.mode === 'web') {
+            ctx.font = `700 22px ${FONT_SANS}`;
+            ctx.fillStyle = '#1e293b';
+            ctx.textAlign = 'center';
+            ctx.fillText('Where should we start?', mx + mw / 2, my + 95);
+
+            rr(mx + 28, my + 148, mw - 56, 86, 20);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.stroke();
+
+            rr(mx + 44, my + 186, 152, 32, 16);
+            ctx.fillStyle = '#eff6ff';
+            ctx.fill();
+            ctx.strokeStyle = '#60a5fa';
+            ctx.stroke();
+            ctx.font = `700 13px ${FONT_SANS}`;
+            ctx.fillStyle = '#1d4ed8';
+            ctx.fillText('● Hydrogen · Med ⌄', mx + 120, my + 202);
+          } else if (c.mode === 'agy') {
+            // Sidecar mini grid
+            ctx.font = `600 13px ${FONT_MONO}`;
+            ctx.fillStyle = '#94a3b8';
+            ctx.textAlign = 'left';
+            ctx.fillText('SIDECAR // MODEL PERIODIC TABLE', mx + 22, my + 34);
+
+            const mini = [
+              { s: '1 H', col: '#1e3a5f', b: '#4f92ff', active: false },
+              { s: '6 C', col: '#3b2358', b: '#a86af9', active: true },
+              { s: '18 Ar', col: '#163d3b', b: '#2dd4bf', active: false },
+            ];
+            mini.forEach((m, mi) => {
+              const tx = mx + 22 + mi * 142;
+              const ty = my + 66;
+              rr(tx, ty, 128, 86, 14);
+              ctx.fillStyle = m.col;
+              ctx.fill();
+              ctx.strokeStyle = m.b;
+              ctx.lineWidth = m.active ? 2.4 : 1.2;
+              ctx.stroke();
+              ctx.font = `700 24px ${FONT_SANS}`;
+              ctx.fillStyle = '#ffffff';
+              ctx.textAlign = 'center';
+              ctx.fillText(m.s, tx + 64, ty + 46);
+            });
+
+            rr(mx + 22, my + 178, mw - 44, 44, 12);
+            ctx.fillStyle = '#4c1d95';
+            ctx.fill();
+            ctx.font = `600 14px ${FONT_SANS}`;
+            ctx.fillStyle = '#f5f3ff';
+            ctx.textAlign = 'center';
+            ctx.fillText('✦ Launch New Chat with Carbon (High)', mx + mw / 2, my + 200);
+
+            ctx.font = `500 13px ${FONT_MONO}`;
+            ctx.fillStyle = '#a78bfa';
+            ctx.fillText('/periodic-model-picker', mx + mw / 2, my + 254);
+          } else {
+            ctx.font = `600 13px ${FONT_MONO}`;
+            ctx.fillStyle = '#5eead4';
+            ctx.textAlign = 'left';
+            ctx.fillText('// ==UserScript==  @author Meow', mx + 24, my + 42);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('// @match https://gemini.google.com/*', mx + 24, my + 68);
+
+            rr(mx + 24, my + 108, mw - 48, 56, 14);
+            ctx.fillStyle = '#0f766e';
+            ctx.fill();
+            ctx.font = `700 16px ${FONT_SANS}`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚡ Tampermonkey 一键安装脚本', mx + mw / 2, my + 136);
+
+            rr(mx + 24, my + 184, mw - 48, 56, 14);
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.fill();
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = `600 15px ${FONT_MONO}`;
+            ctx.fillText('backspacegh.github.io/periodic-model-picker', mx + mw / 2, my + 212);
+          }
+
+          // Card footer title & subtitle
+          ctx.textAlign = 'left';
+          ctx.font = `800 26px ${FONT_SANS}`;
+          ctx.fillStyle = '#0f172a';
+          ctx.fillText(c.title, cx + 32, cy + 420);
+
+          ctx.font = `400 17px ${FONT_SANS}`;
+          ctx.fillStyle = '#64748b';
+          ctx.fillText(c.sub, cx + 32, cy + 464);
+
+          ctx.restore();
+        });
+      }
+
+      // Bars 25..27 (48.39s - 52.26s): 08 · 本地纯净架构 (Exact homage to Ref Scene 09!)
+      function scene08Architecture(t) {
+        const localSec = t - 25 * BAR;
+        drawStudioBackground('rgba(16,185,129,0.07)', 1280, 540);
+        drawEditorialHUD(t, 8, 9, 1);
+
+        drawLeftEditorial(
+          '08',
+          '纯净架构',
+          ['零外部依赖，', '纯本地运行。'],
+          ['Shadow DOM 严密隔离宿主样式；', '偏好仅存本地浏览器与 127.0.0.1 回环。'],
+          localSec * 2.0
+        );
+
+        // Right architecture diagram
+        const nodes = [
+          { x: 760, y: 550, w: 300, h: 118, tag: 'SHARED CORE', sub: '118 IUPAC 元素零依赖引擎' },
+          { x: 1120, y: 550, w: 300, h: 118, tag: 'SHADOW DOM', sub: '独立渲染层 · 不污染原网页' },
+          { x: 1480, y: 550, w: 300, h: 118, tag: 'LOCAL SIDECAR', sub: '仅限本机 127.0.0.1 通信' },
+        ];
+
+        // Connecting horizontal lines + label
+        ctx.save();
+        ctx.font = `600 15px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.textAlign = 'center';
+        ctx.fillText('127.0.0.1   ·   LOCAL LOOPBACK ONLY', 1270, 712);
+
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(1060, 609);
+        ctx.lineTo(1120, 609);
+        ctx.moveTo(1420, 609);
+        ctx.lineTo(1480, 609);
+        ctx.stroke();
+
+        nodes.forEach((n, i) => {
+          const p = easeOutQuint(invLerp(i * 0.15, i * 0.15 + 0.55, localSec));
+          ctx.save();
+          ctx.globalAlpha = p;
+          ctx.translate(0, (1 - p) * 18);
+          fillCard(n.x, n.y, n.w, n.h, 20, '#ffffff', 'rgba(15,23,42,0.09)', 0.08, 16, 40);
+          ctx.font = `800 18px ${FONT_MONO}`;
+          ctx.fillStyle = '#0f172a';
+          ctx.textAlign = 'left';
+          ctx.fillText(n.tag, n.x + 28, n.y + 44);
+          ctx.font = `400 17px ${FONT_SANS}`;
+          ctx.fillStyle = '#475569';
+          ctx.fillText(n.sub, n.x + 28, n.y + 80);
+          ctx.restore();
+        });
+
+        // Blocked 3rd-party cloud node above middle node (appears at 0.55s, exact Ref 09 homage!)
+        const blockP = easeOutQuint(invLerp(0.45, 1.05, localSec));
+        if (blockP > 0.01) {
+          ctx.save();
+          ctx.globalAlpha = blockP;
+          const bx = 1120, by = 310, bw = 300, bh = 110;
+          rr(bx, by, bw, bh, 20);
+          ctx.fillStyle = '#fff5f5';
+          ctx.fill();
+          ctx.setLineDash([7, 6]);
+          ctx.strokeStyle = '#fca5a5';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(1270, by + bh);
+          ctx.lineTo(1270, 550);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.font = `700 18px ${FONT_SANS}`;
+          ctx.fillStyle = '#dc2626';
+          ctx.textAlign = 'left';
+          ctx.fillText('第三方远程服务器', bx + 28, by + 42);
+          ctx.font = `400 16px ${FONT_SANS}`;
+          ctx.fillStyle = '#ef4444';
+          ctx.fillText('从不连接 · 零遥测追踪', bx + 28, by + 76);
+
+          ctx.font = `700 16px ${FONT_SANS}`;
+          ctx.fillStyle = '#dc2626';
+          ctx.fillText('✕  不上传任何对话与密钥', 1288, 482);
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
+      // Bars 27..29 (52.26s - 56.13s): 09 · 一键安装 (Dark sleek Terminal matching Ref Scene 10!)
+      function scene09Install(t) {
+        const localSec = t - 27 * BAR;
+        drawStudioBackground('rgba(59,130,246,0.08)', 1280, 520);
+        drawEditorialHUD(t, 9, 9, 1);
+
+        drawLeftEditorial(
+          '09',
+          '即刻上手',
+          ['一条命令装好，', '开箱即用。'],
+          ['支持 git clone 直装 Antigravity 插件，', '亦可在 Release 下载扩展包或点击安装油猴脚本。'],
+          localSec * 2.2
+        );
+
+        const tx = 750, ty = 320, tw = 1040, th = 390;
+        fillCard(tx, ty, tw, th, 24, '#0f131c', 'rgba(255,255,255,0.12)', 0.22, 28, 70);
+
+        // Terminal traffic lights
+        ['#ef4444', '#f59e0b', '#10b981'].forEach((c, i) => {
+          ctx.beginPath();
+          ctx.arc(tx + 34 + i * 22, ty + 32, 6.5, 0, Math.PI * 2);
+          ctx.fillStyle = c;
+          ctx.fill();
+        });
+        ctx.font = `600 13px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.textAlign = 'left';
+        ctx.fillText('ZSH   periodic-model-picker — Created by Meow', tx + 112, ty + 32);
+
+        const cmd = 'git clone https://github.com/BACKSPACEGH/periodic-model-picker.git && ./install.sh';
+        const chars = Math.floor(clamp(localSec / 1.45) * cmd.length);
+        const shown = cmd.slice(0, chars);
+
+        ctx.font = `600 17.5px ${FONT_MONO}`;
+        ctx.fillStyle = '#60a5fa';
+        ctx.fillText('~ $', tx + 38, ty + 112);
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(shown, tx + 84, ty + 112);
+
+        if (localSec >= 1.60) {
+          const outP = easeOutCubic(invLerp(1.60, 2.05, localSec));
+          ctx.save();
+          ctx.globalAlpha = outP;
+          ctx.font = `500 18px ${FONT_MONO}`;
+          ctx.fillStyle = '#34d399';
+          ctx.fillText('✓ Antigravity 插件 v1.0.0 已激活 (/periodic-model-picker)', tx + 40, ty + 174);
+          ctx.fillText('✓ Chrome 扩展 & Tampermonkey 油猴脚本已同步构建完成', tx + 40, ty + 214);
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText('→ 在线免安装试玩: https://backspacegh.github.io/periodic-model-picker/', tx + 40, ty + 272);
+          ctx.restore();
+        }
+      }
+
+      // Bars 29..31 (56.13s - 60.00s): Outro Brand Card + Gentle White Fade
+      function sceneOutro(t) {
+        const localSec = t - 29 * BAR; // 0 .. 3.87s
+        drawStudioBackground('rgba(59,130,246,0.08)', W / 2, H * 0.44);
+
+        const sc = springPop(invLerp(0.0, 0.7, localSec));
+        drawAppIcon(W / 2, H * 0.36, 118, sc);
+
+        const textP = easeOutQuint(invLerp(0.12, 0.75, localSec));
+        ctx.save();
+        ctx.globalAlpha = textP;
+        ctx.translate(0, (1 - textP) * 18);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = `800 72px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('Model Periodic Table', W / 2, H * 0.52);
+
+        ctx.font = `400 24px ${FONT_SANS}`;
+        ctx.fillStyle = '#475569';
+        ctx.fillText('118 种元素，把选模型变成一种直觉。', W / 2, H * 0.605);
+
+        ctx.font = `600 15px ${FONT_MONO}`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('v1.0.0    ·    GEMINI WEB    ·    ANTIGRAVITY    ·    USERSCRIPT    ·    MIT    ·    BY MEOW', W / 2, H * 0.685);
+
+        ctx.font = `600 22px ${FONT_MONO}`;
+        ctx.fillStyle = '#2563eb';
+        ctx.fillText('github.com/BACKSPACEGH/periodic-model-picker', W / 2, H * 0.745);
+        ctx.restore();
+
+        // Smooth fade to pure white in final 0.85s
+        const fadeOut = easeInOutCubic(invLerp(3.0, 3.84, localSec));
+        if (fadeOut > 0) {
+          ctx.save();
+          ctx.globalAlpha = fadeOut;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, W, H);
+          ctx.restore();
+        }
+      }
+
+      // Master frame dispatcher with clean micro-dissolve at cut boundaries
+      function drawTimelineAt(t) {
+        t = clamp(t, 0, DURATION - 0.0001);
+        const bar = t / BAR;
+        if (bar < 3) return sceneIntro(t);
+        if (bar < 4) return sceneBrandTitle(t);
+        if (bar < 7) return scene01Overview(t);
+        if (bar < 10.5) return scene02ReleasedTrio(t);
+        if (bar < 13.5) return scene03ThinkingLevels(t);
+        if (bar < 16.5) return scene04ComingSoon(t);
+        if (bar < 19.5) return scene05KeyboardJump(t);
+        if (bar < 22) return scene06OtherModels(t);
+        if (bar < 25) return scene07ThreeEntries(t);
+        if (bar < 27) return scene08Architecture(t);
+        if (bar < 29) return scene09Install(t);
+        return sceneOutro(t);
+      }
+
+      // Bilibili 16:9 Cover Image Renderer (exact homage to Antigrative Dashboard V-0.9.1 cover.jpg!)
+      function renderCover() {
+        drawStudioBackground('rgba(59,130,246,0.10)', 1340, 500);
+
+        // Left side: Logo + Title + v1.0.0 badge
+        drawAppIcon(142, 165, 68, 1);
+        ctx.save();
+        ctx.font = `800 32px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Model Periodic Table', 194, 165);
+
+        rr(542, 145, 92, 40, 20);
+        ctx.fillStyle = '#2563eb';
+        ctx.fill();
+        ctx.font = `700 18px ${FONT_MONO}`;
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText('v1.0.0', 588, 165);
+
+        // Giant two-line Hero Copy (Black line 1 + Royal Blue line 2!)
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.font = `900 104px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText('118 种元素，', 108, 258);
+        ctx.fillStyle = '#2563eb';
+        ctx.fillText('尽在眼前。', 108, 386);
+
+        ctx.font = `400 30px ${FONT_SANS}`;
+        ctx.fillStyle = '#475569';
+        ctx.fillText('氢、碳、氩与思考深度，就在对话栏旁边。', 112, 536);
+
+        // 3 Feature Pills
+        const pills = [
+          { label: 'H · C · Ar 三大主力', dot: '#3b82f6' },
+          { label: '4 档思考深度', dot: '#8b5cf6' },
+          { label: 'Web · Antigravity · 油猴', dot: '#14b8a6' },
+        ];
+        let px = 112;
+        const py = 626;
+        ctx.font = `700 18px ${FONT_SANS}`;
+        for (const p of pills) {
+          const pw = ctx.measureText(p.label).width + 48;
+          fillCard(px, py, pw, 52, 16, '#ffffff', 'rgba(15,23,42,0.08)', 0.06, 10, 24);
+          ctx.beginPath();
+          ctx.arc(px + 20, py + 26, 5, 0, Math.PI * 2);
+          ctx.fillStyle = p.dot;
+          ctx.fill();
+          ctx.fillStyle = '#0f172a';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(p.label, px + 34, py + 26);
+          px += pw + 14;
+        }
+
+        // Bottom-left footer metadata
+        ctx.font = `600 16px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('GEMINI 4 & ANTIGRAVITY PLUGIN  ·  CREATED BY MEOW  ·  OPEN SOURCE', 112, H - 64);
+
+        // Right layered UI cards (Periodic Table card + overlapping Thinking Popover + bottom Model Pill bar!)
+        drawPeriodicTableModal({
+          x: 1000,
+          y: 96,
+          w: 840,
+          h: 660,
+          activeSym: 'Ar',
+          thinking: 'High',
+          showPopover: false,
+        });
+
+        // Overlapping crisp foreground Popover Card (center-right, just like the Pixel Cat speed card in ref cover!)
+        const fx = 932, fy = 424, fw = 468, fh = 286;
+        fillCard(fx, fy, fw, fh, 26, '#ffffff', 'rgba(15,23,42,0.10)', 0.16, 28, 68);
+        ctx.beginPath();
+        ctx.arc(fx + 38, fy + 46, 7, 0, Math.PI * 2);
+        ctx.fillStyle = '#14b8a6';
+        ctx.fill();
+        ctx.font = `800 26px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'left';
+        ctx.fillText('Gemini 4 Argon', fx + 56, fy + 46);
+        ctx.font = `700 16px ${FONT_MONO}`;
+        ctx.fillStyle = '#0f766e';
+        ctx.textAlign = 'right';
+        ctx.fillText('#18 Ar · 氩', fx + fw - 34, fy + 46);
+
+        ctx.font = `500 18px ${FONT_SANS}`;
+        ctx.fillStyle = '#475569';
+        ctx.textAlign = 'left';
+        ctx.fillText('Code and analysis · 代码工程与严谨分析', fx + 34, fy + 92);
+
+        const segX = fx + 32, segY = fy + 132, segW = fw - 64, segH = 62;
+        rr(segX, segY, segW, segH, 16);
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fill();
+        ['Low', 'Medium', 'High', 'XHigh'].forEach((lv, idx) => {
+          const iw = (segW - 12) / 4;
+          const lx = segX + 6 + idx * iw;
+          const isAct = lv === 'High';
+          if (isAct) {
+            fillCard(lx, segY + 6, iw, segH - 12, 11, '#115e59', '#2dd4bf', 0.12, 6, 14);
+          }
+          ctx.font = `${isAct ? 700 : 600} 17px ${FONT_SANS}`;
+          ctx.fillStyle = isAct ? '#ffffff' : '#475569';
+          ctx.textAlign = 'center';
+          ctx.fillText(lv, lx + iw / 2, segY + segH / 2);
+        });
+
+        ctx.font = `600 15px ${FONT_MONO}`;
+        ctx.fillStyle = '#64748b';
+        ctx.textAlign = 'left';
+        ctx.fillText('gemini-4-argon-high', fx + 34, fy + 242);
+        ctx.fillStyle = '#0f766e';
+        ctx.textAlign = 'right';
+        ctx.fillText('Alt + P 一键呼出', fx + fw - 34, fy + 242);
+
+        // Bottom floating inline pill bar
+        const bx = 932, by = 742, bw = 640, bh = 82;
+        fillCard(bx, by, bw, bh, 22, '#ffffff', '#93c5fd', 0.12, 18, 44);
+        rr(bx + 18, by + 18, 132, 46, 14);
+        ctx.fillStyle = '#eff6ff';
+        ctx.fill();
+        ctx.font = `700 17px ${FONT_SANS}`;
+        ctx.fillStyle = '#1d4ed8';
+        ctx.textAlign = 'center';
+        ctx.fillText('对话栏内嵌', bx + 84, by + 41);
+
+        ctx.font = `700 18px ${FONT_SANS}`;
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'left';
+        ctx.fillText('● Argon · High ⌄    ✦ 118 元素    ⚡ 零外部依赖', bx + 172, by + 41);
+        ctx.restore();
+      }
+
+      window.PROMO_META = { width: W, height: H, fps: 60, duration: DURATION, bpm: BPM };
+      window.renderPromoFrame = drawTimelineAt;
+      window.renderCoverFrame = renderCover;
+
+      // Default interactive preview if opened manually in browser (not driven by headless capture)
+      if (!location.search.includes('capture=1')) {
+        let start = null;
+        const tick = (now) => {
+          if (!start) start = now;
+          const elapsed = ((now - start) / 1000) % DURATION;
+          drawTimelineAt(elapsed);
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+    })();
+  </script>
+</body>
+</html>
