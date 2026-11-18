@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Model Periodic Table",
+  "version": "1.0.0",
+  "description": "Select Gemini 4 models (Hydrogen, Carbon, Argon + Thinking levels) on an interactive 118-element Periodic Table.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://gemini.google.com/*"
+  ],
+  "action": {
+    "default_title": "Model Periodic Table",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "periodic-table-data.js",
+        "periodic-table-widget.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

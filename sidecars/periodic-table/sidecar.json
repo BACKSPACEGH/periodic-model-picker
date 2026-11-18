@@ -1,0 +1,20 @@
+{
+  "command": "node",
+  "args": [
+    "server.mjs"
+  ],
+  "restart_policy": "always",
+  "display_name": "Model Periodic Table",
+  "description": "Interactive 118-element Periodic Table selector for Gemini 4 (Hydrogen, Carbon, Argon) and Antigravity models.",
+  "has_web_ui": true,
+  "ui_config": {
+    "display_name": "Model Periodic Table",
+    "views": [
+      {
+        "path": "/",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE",
+        "title": "Model Periodic Table"
+      }
+    ]
+  }
+}

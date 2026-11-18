@@ -1,0 +1,14 @@
+{
+  "name": "periodic-model-picker",
+  "displayName": "Model Periodic Table",
+  "description": "Interactive 118-element Periodic Table model selector for Gemini 4 (Hydrogen, Carbon, Argon) and Antigravity.",
+  "version": "1.0.0",
+  "author": "BACKSPACEGH",
+  "repository": "https://github.com/BACKSPACEGH/periodic-model-picker",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Open the Model Periodic Table selector",
+    "Switch swarm model using the periodic table",
+    "Compare Gemini 4 Hydrogen, Carbon, and Argon capabilities"
+  ]
+}

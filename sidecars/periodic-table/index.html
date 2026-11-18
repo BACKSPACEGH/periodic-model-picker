@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Model Periodic Table · Antigravity</title>
+  <script src="/preload.js"></script>
+  <script src="/periodic-table-data.js"></script>
+  <script src="/periodic-table-widget.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: #0e1015 !important;
+      color: #e8eaed !important;
+      font-family: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    }
+    .ag-page {
+      min-height: 100vh;
+      padding: 28px 16px 40px;
+      background:
+        radial-gradient(ellipse 680px 380px at 50% 18%, rgba(59, 130, 246, 0.13), transparent 70%),
+        #0e1015;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .ag-hero-title {
+      font-size: clamp(22px, 3.2vw, 30px);
+      font-weight: 400;
+      color: #f1f3f4;
+      letter-spacing: -0.02em;
+      margin: 4px 0 18px;
+      text-align: center;
+    }
+    /* Gemini-style Input Bar */
+    .ag-composer {
+      width: 100%;
+      max-width: 760px;
+      background: #1c1e24;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 7px 10px 7px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+    .ag-composer:focus-within {
+      border-color: rgba(102, 157, 246, 0.48);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(102, 157, 246, 0.2);
+    }
+    .ag-plus {
+      color: #bdc1c6;
+      font-size: 20px;
+      line-height: 1;
+      user-select: none;
+      opacity: 0.85;
+    }
+    .ag-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #f1f3f4;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    .ag-input::placeholder {
+      color: #8b909a;
+    }
+    .ag-model-pill {
+      appearance: none;
+      background: #282b33;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e8eaed;
+      border-radius: 999px;
+      padding: 7px 13px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+    .ag-model-pill:hover {
+      background: #323640;
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+    .ag-model-pill[data-theme="blue"] {
+      border-color: rgba(79, 146, 255, 0.45);
+      background: rgba(28, 51, 82, 0.72);
+    }
+    .ag-model-pill[data-theme="purple"] {
+      border-color: rgba(168, 106, 249, 0.45);
+      background: rgba(51, 34, 73, 0.72);
+    }
+    .ag-model-pill[data-theme="teal"] {
+      border-color: rgba(45, 212, 191, 0.45);
+      background: rgba(22, 59, 57, 0.72);
+    }
+    .ag-coming-dot {
+      width: 6.5px;
+      height: 6.5px;
+      border-radius: 50%;
+      border: 1.4px solid #9aa0a6;
+      display: inline-block;
+    }
+    .ag-chevron {
+      width: 12px;
+      height: 12px;
+      transition: transform 0.18s ease;
+      opacity: 0.82;
+    }
+    .ag-chevron.is-up {
+      transform: rotate(180deg);
+    }
+    .ag-send-btn {
+      appearance: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: none;
+      background: #30343e;
+      color: #e8eaed;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s ease, transform 0.12s ease;
+    }
+    .ag-send-btn:hover {
+      background: #4f92ff;
+      color: #ffffff;
+    }
+    .ag-send-btn:active {
+      transform: scale(0.94);
+    }
+
+    /* Sub-bar: Model ID + Actions */
+    .ag-toolbar {
+      width: 100%;
+      max-width: 884px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 12px;
+      padding: 0 4px;
+    }
+    .ag-model-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #9aa0a6;
+    }
+    .ag-code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11.5px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: #d2e3fc;
+    }
+    .ag-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ag-chip-btn {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #c4c7c5;
+      font-size: 11.5px;
+      font-weight: 500;
+      font-family: inherit;
+      padding: 5px 11px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+    }
+    .ag-chip-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    /* Table container */
+    .ag-table-wrap {
+      width: 100%;
+      max-width: 884px;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .ag-table-wrap.is-collapsed {
+      display: none;
+    }
+
+    /* Starter suggestions shown when table is collapsed (just like frame_0.2!) */
+    .ag-starters {
+      width: 100%;
+      max-width: 680px;
+      margin-top: 22px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ag-starters.is-visible {
+      display: flex;
+    }
+    .ag-starter-btn {
+      appearance: none;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 11px 14px;
+      color: #c4c7c5;
+      font-size: 14px;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.14s ease, border-color 0.14s ease;
+    }
+    .ag-starter-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: #f1f3f4;
+    }
+
+    /* Toast */
+    .ag-toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(14px);
+      background: #262932;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f1f3f4;
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 100;
+      max-width: 92vw;
+      text-align: center;
+    }
+    .ag-toast.is-visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <main class="ag-page">
+    <h1 class="ag-hero-title">Where should we start?</h1>
+
+    <form class="ag-composer" id="composerForm">
+      <span class="ag-plus" aria-hidden="true">＋</span>
+      <input
+        id="promptInput"
+        class="ag-input"
+        type="text"
+        placeholder="Ask Gemini in Antigravity..."
+        autocomplete="off"
+      />
+      <button type="button" class="ag-model-pill" id="modelPillBtn" title="Toggle Model Periodic Table">
+        <span id="modelPillContent">Carbon</span>
+        <svg class="ag-chevron is-up" id="pillChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+      <button type="submit" class="ag-send-btn" title="Start Antigravity conversation with selected model" aria-label="Start conversation">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    </form>
+
+    <div class="ag-toolbar">
+      <div class="ag-model-badge">
+        <span>Active Model ID:</span>
+        <code class="ag-code" id="activeModelCode">gemini-4-carbon-high</code>
+      </div>
+      <div class="ag-actions">
+        <button type="button" class="ag-chip-btn" id="copyModelBtn">Copy Model ID</button>
+        <button type="button" class="ag-chip-btn" id="quickNewChatBtn">New Chat with Model</button>
+      </div>
+    </div>
+
+    <section class="ag-table-wrap" id="tableContainer"></section>
+
+    <section class="ag-starters" id="startersSection">
+      <button type="button" class="ag-starter-btn" data-prompt="Review this repository's architecture and highlight top improvements">
+        <span>📖</span><span>Review this repository's architecture and highlight improvements</span>
+      </button>
+      <button type="button" class="ag-starter-btn" data-prompt="Benchmark algorithm complexity and optimize hot paths">
+        <span>⚡</span><span>Benchmark algorithm complexity and optimize hot paths</span>
+      </button>
+      <button type="button" class="ag-starter-btn" data-prompt="Write comprehensive unit tests for edge cases">
+        <span>🧪</span><span>Write comprehensive unit tests for edge cases</span>
+      </button>
+    </section>
+
+    <div class="ag-toast" id="toastEl"></div>
+  </main>
+
+  <script>
+    (async function () {
+      const apiFetch = (url, opts = {}) =>
+        window.sidecar?.fetch ? window.sidecar.fetch(url, opts) : fetch(url, opts);
+
+      const toastEl = document.getElementById('toastEl');
+      let toastTimer = null;
+      function showToast(msg) {
+        clearTimeout(toastTimer);
+        toastEl.textContent = msg;
+        toastEl.classList.add('is-visible');
+        toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 2800);
+      }
+
+      let savedPrefs = null;
+      try {
+        const res = await apiFetch('/api/preferences');
+        if (res.ok) savedPrefs = await res.json();
+      } catch {}
+
+      const tableContainer = document.getElementById('tableContainer');
+      const startersSection = document.getElementById('startersSection');
+      const modelPillBtn = document.getElementById('modelPillBtn');
+      const modelPillContent = document.getElementById('modelPillContent');
+      const pillChevron = document.getElementById('pillChevron');
+      const activeModelCode = document.getElementById('activeModelCode');
+      const promptInput = document.getElementById('promptInput');
+
+      let tableExpanded = true;
+      function setTableExpanded(open) {
+        tableExpanded = open;
+        tableContainer.classList.toggle('is-collapsed', !open);
+        startersSection.classList.toggle('is-visible', !open);
+        pillChevron.classList.toggle('is-up', open);
+      }
+
+      const widget = new window.GeminiPeriodicTableWidget.PeriodicTableWidget({
+        mode: 'inline',
+        platform: 'antigravity',
+        mountTarget: tableContainer,
+        useShadowDom: true,
+        showCloseButton: true,
+        initialState: savedPrefs || {
+          selectedType: 'element',
+          selectedSymbol: 'C',
+          thinkingBySymbol: { H: 'Medium', C: 'High', Ar: 'High' },
+        },
+        onSelect: (sel) => {
+          syncPillUI(sel);
+          savePrefs();
+        },
+      });
+
+      // Hook close button inside inline surface to collapse into starter view (just like video!)
+      const shadowCloseBtn = widget.root.querySelector('.gpt-close-btn');
+      if (shadowCloseBtn) {
+        shadowCloseBtn.addEventListener('click', () => setTableExpanded(false));
+      }
+
+      modelPillBtn.addEventListener('click', () => {
+        setTableExpanded(!tableExpanded);
+      });
+
+      let lastRealModelId = 'gemini-4-carbon-high';
+
+      function syncPillUI(sel) {
+        if (sel.type === 'released') {
+          lastRealModelId = sel.antigravityModelId;
+          modelPillBtn.dataset.theme = sel.model.theme;
+          modelPillContent.innerHTML = `${sel.pillLabel} <span style="opacity:.7;font-size:11.5px">· ${sel.thinkingLevel}</span>`;
+          activeModelCode.textContent = sel.antigravityModelId;
+        } else if (sel.type === 'older') {
+          lastRealModelId = sel.antigravityModelId;
+          delete modelPillBtn.dataset.theme;
+          modelPillContent.textContent = sel.pillLabel;
+          activeModelCode.textContent = sel.antigravityModelId;
+        } else {
+          delete modelPillBtn.dataset.theme;
+          modelPillContent.innerHTML = `<span class="ag-coming-dot"></span> ${sel.pillLabel}`;
+          activeModelCode.textContent = `coming-soon (${sel.symbol}) → fallback: ${lastRealModelId}`;
+        }
+      }
+
+      async function savePrefs() {
+        try {
+          await apiFetch('/api/preferences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              selectedType: widget.state.selectedType,
+              selectedSymbol: widget.state.selectedSymbol,
+              olderModelId: widget.state.olderModelId,
+              thinkingBySymbol: widget.state.thinkingBySymbol,
+            }),
+          });
+        } catch {}
+      }
+
+      syncPillUI(widget.getCurrentSelection());
+
+      async function launchChat(messageText) {
+        const sel = widget.getCurrentSelection();
+        const targetModel = sel.antigravityModelId || lastRealModelId;
+        const prompt = (messageText || '').trim();
+        if (!prompt) {
+          promptInput.focus();
+          showToast('Type a prompt in "Ask Gemini" first, then press Enter!');
+          return;
+        }
+        if (sel.comingSoon) {
+          showToast(`Gemini 4 ${sel.fullName} is coming soon — launching with ${targetModel}!`);
+        } else {
+          showToast(`Starting conversation with ${targetModel}...`);
+        }
+
+        try {
+          const res = await apiFetch('/api/launch-model-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: targetModel,
+              message: prompt,
+            }),
+          });
+          const data = await res.json();
+          const newId =
+            data?.conversationId ||
+            data?.conversation_id ||
+            data?.response?.conversationId ||
+            data?.id;
+          promptInput.value = '';
+          if (newId && window.sidecar?.ui?.toggleConversation) {
+            window.sidecar.ui.toggleConversation(newId);
+          } else if (data?.previewMode) {
+            showToast(`Preview mode: would launch ${targetModel}`);
+          } else {
+            showToast(`Launched conversation on ${targetModel}!`);
+          }
+        } catch (err) {
+          showToast(`Could not launch conversation: ${err.message}`);
+        }
+      }
+
+      document.getElementById('composerForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        launchChat(promptInput.value);
+      });
+
+      document.getElementById('quickNewChatBtn').addEventListener('click', () => {
+        const text = promptInput.value.trim() || 'Hello! Which Gemini model are you running on?';
+        launchChat(text);
+      });
+
+      document.getElementById('copyModelBtn').addEventListener('click', async () => {
+        const sel = widget.getCurrentSelection();
+        const modelStr = sel.antigravityModelId || lastRealModelId;
+        try {
+          await navigator.clipboard.writeText(modelStr);
+          showToast(`Copied "${modelStr}" to clipboard`);
+        } catch {
+          showToast(`Model ID: ${modelStr}`);
+        }
+      });
+
+      document.querySelectorAll('.ag-starter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          promptInput.value = btn.dataset.prompt || '';
+          promptInput.focus();
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

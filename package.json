@@ -1,0 +1,27 @@
+{
+  "name": "periodic-model-picker",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "Select Gemini 4 & Antigravity models on an interactive 118-element Periodic Table (Chrome Extension + Antigravity Plugin + Userscript).",
+  "author": "BACKSPACEGH",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BACKSPACEGH/periodic-model-picker.git"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "install:antigravity": "node scripts/build.mjs && node scripts/install-antigravity.mjs",
+    "preview:sidecar": "node sidecars/periodic-table/server.mjs",
+    "test": "node --test tests/verify.test.mjs"
+  },
+  "keywords": [
+    "gemini",
+    "gemini-4",
+    "antigravity",
+    "periodic-table",
+    "chrome-extension",
+    "model-selector"
+  ],
+  "license": "MIT"
+}

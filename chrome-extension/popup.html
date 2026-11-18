@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Model Periodic Table</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      width: 300px;
+      padding: 16px;
+      background: #18191e;
+      color: #e8eaed;
+      font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14.5px;
+      font-weight: 600;
+    }
+    .card {
+      background: #22242b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .label {
+      font-size: 11px;
+      color: #9aa0a6;
+      margin-bottom: 4px;
+    }
+    .val {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f1f3f4;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .btn {
+      width: 100%;
+      appearance: none;
+      border: 1px solid rgba(102, 157, 246, 0.45);
+      background: #244068;
+      color: #e8f0fe;
+      padding: 9px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:hover {
+      background: #2d5082;
+    }
+    .hint {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #80868b;
+      line-height: 1.45;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="head">
+    <div class="brand">
+      <span>✦</span>
+      <span>Model Periodic Table</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Current Selection</div>
+    <div class="val" id="currentSelectionText">Gemini 4 Hydrogen · Medium</div>
+  </div>
+
+  <label class="row">
+    <span>Enable on Gemini Web</span>
+    <input type="checkbox" id="enableToggle" checked />
+  </label>
+
+  <button type="button" class="btn" id="openTableBtn">Open Periodic Table on Tab</button>
+
+  <div class="hint">
+    Shortcut on <b>gemini.google.com</b>: <b>Alt + P</b><br/>
+    Hold <b>Shift</b> while clicking to open native menu.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
