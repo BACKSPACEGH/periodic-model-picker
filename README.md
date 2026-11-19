@@ -10,21 +10,22 @@
   <a href="https://github.com/BACKSPACEGH/periodic-model-picker/releases/latest"><strong>📦 Download Chrome Extension (.zip)</strong></a>
 </p>
 
-An interactive **118-element Periodic Table** model selector for **Gemini Web (`gemini.google.com`)** and **Google Antigravity** — inspired by the Gemini 4 chemical element naming scheme (**Hydrogen**, **Carbon**, **Argon**). Created by **Meow**.
+An interactive **118-element Periodic Table** model selector for **Gemini Web (`gemini.google.com`)** and **Google Antigravity** — inspired by the Gemini 4 chemical element naming scheme (**Hydrogen**, **Carbon**, **Neon**, **Argon**). Created by **Meow**.
 
-在一个完整的 **118 元素周期表** 上丝滑切换 **Gemini 4** 与 **Antigravity** 模型（支持 **Hydrogen 氢**、**Carbon 碳**、**Argon 氩** 三大已发布元素模型 + `Low / Medium / High / XHigh` 思考深度切换 + 其余 115 种 `Coming soon` 彩蛋元素卡片预览）。
+在一个完整的 **118 元素周期表** 上丝滑切换 **Gemini 4** 与 **Antigravity** 模型（支持 **Hydrogen 氢**、**Carbon 碳**、**Neon 氖**、**Argon 氩** 四大已发布元素模型 + `Low / Medium / High / XHigh` 思考深度切换 + 其余 114 种 `Coming soon` 彩蛋元素卡片预览）。
 
 ---
 
 ## ✨ Features / 功能亮点
 
 - **Full 118-Element IUPAC Grid**: Every element from `1 H` (Hydrogen) to `118 Og` (Oganesson), including Lanthanides (`Ln 57–71`) and Actinides (`An 89–103`).
-- **3 Released Gemini 4 Element Models**:
+- **4 Released Gemini 4 Element Models**:
   - **`1 H` — Gemini 4 Hydrogen** (*Everyday help*) · Blue theme · `Low / Medium / High` (+ `XHigh` in Antigravity)
   - **`6 C` — Gemini 4 Carbon** (*Most complex work*) · Purple theme · `Low / Medium / High`
+  - **`10 Ne` — Gemini 4 Neon** (*Fast deep reasoning*) · Coral theme · `Low / Medium / High` (+ `XHigh` in Antigravity)
   - **`18 Ar` — Gemini 4 Argon** (*Code and analysis*) · Teal theme · `Low / Medium / High`
-- **115 "Coming Soon" Elements**: Click any unreleased element (`26 Fe` Iron, `48 Cd` Cadmium, `79 Au` Gold, etc.) for its floating element popover and playful `○ Element ⌄` badge preview.
-- **Older & Other Models Bar**: Quick one-click chips for `3.1 Flash-Lite`, `3.1 Pro` on Gemini Web, and `Gemini 3.8 Flash`, `Orchestrator`, `Claude Sonnet 4.6`, `Claude Opus 4.6`, `GPT-OSS 120B` in Antigravity.
+- **114 "Coming Soon" Elements**: Click any unreleased element (`26 Fe` Iron, `48 Cd` Cadmium, `79 Au` Gold, etc.) for its floating element popover and playful `○ Element ⌄` badge preview.
+- **Older & Other Models Bar**: Quick one-click chips for `3.1 Flash-Lite`, `3.1 Pro` on Gemini Web, and `Orchestrator (Ne)`, `Orchestrator (Ar)`, `Gemini 3.8 Flash`, `Claude Sonnet 5.5`, `Claude Opus 5.5`, `GPT-OSS 120B` in Antigravity.
 - **Keyboard Type-to-Jump**: While the Periodic Table is open, type any chemical symbol (`Fe`, `Ar`, `Au`, `C`) to highlight and jump straight to that element; press `Alt + P` to toggle anytime.
 
 ---

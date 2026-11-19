@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gemini Model Periodic Table",
-  "version": "1.0.0",
-  "description": "Select Gemini 4 models (Hydrogen, Carbon, Argon + Thinking levels) on an interactive 118-element Periodic Table.",
+  "version": "1.1.0",
+  "description": "Select Gemini 4 models (Hydrogen, Carbon, Neon, Argon + Thinking levels) on an interactive 118-element Periodic Table.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

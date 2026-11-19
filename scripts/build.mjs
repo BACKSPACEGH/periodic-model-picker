@@ -38,9 +38,9 @@ const contentCode = readFileSync(join(EXT, 'content.js'), 'utf8');
 const userscriptHeader = `// ==UserScript==
 // @name         Gemini Model Periodic Table
 // @namespace    https://github.com/BACKSPACEGH/periodic-model-picker
-// @version      1.0.0
+// @version      1.1.0
 // @author       Meow
-// @description  Select Gemini 4 models (Hydrogen, Carbon, Argon + Thinking levels) on an interactive 118-element Periodic Table!
+// @description  Select Gemini 4 models (Hydrogen, Carbon, Neon, Argon + Thinking levels) on an interactive 118-element Periodic Table!
 // @match        https://gemini.google.com/*
 // @downloadURL  https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js
 // @updateURL    https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js
@@ -145,10 +145,10 @@ function writeFallbackPng(size, filepath) {
         raw[px + 2] = 150;
         raw[px + 3] = 255;
       } else {
-        // Dark slate
-        raw[px] = 28;
-        raw[px + 1] = 30;
-        raw[px + 2] = 38;
+        // Warm coral Ne quadrant
+        raw[px] = 234;
+        raw[px + 1] = 108;
+        raw[px + 2] = 44;
         raw[px + 3] = 255;
       }
     }

@@ -40,12 +40,12 @@ test('Periodic table contains all 118 unique IUPAC elements without grid collisi
   }
 });
 
-test('Released Gemini 4 models match Hydrogen (1), Carbon (6), and Argon (18)', () => {
+test('Released Gemini 4 models match Hydrogen (1), Carbon (6), Neon (10), and Argon (18)', () => {
   const released = DATA.ELEMENTS.filter((e) => e.released);
-  assert.equal(released.length, 3);
+  assert.equal(released.length, 4);
   assert.deepEqual(
     released.map((e) => e.symbol),
-    ['H', 'C', 'Ar']
+    ['H', 'C', 'Ne', 'Ar']
   );
 
   assert.equal(DATA.ELEMENTS_BY_SYMBOL.H.model.fullName, 'Gemini 4 Hydrogen');
@@ -56,9 +56,22 @@ test('Released Gemini 4 models match Hydrogen (1), Carbon (6), and Argon (18)', 
   assert.equal(DATA.ELEMENTS_BY_SYMBOL.C.model.tagline, 'Most complex work');
   assert.equal(DATA.ELEMENTS_BY_SYMBOL.C.model.antigravityModelIds.High, 'gemini-4-carbon-high');
 
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.fullName, 'Gemini 4 Neon');
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.tagline, 'Fast deep reasoning');
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.theme, 'coral');
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.antigravityModelIds.Low, 'gemini-4-neon-low');
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.antigravityModelIds.Medium, 'gemini-4-neon-medium');
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.antigravityModelIds.High, 'gemini-4-neon-high');
+  assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ne.model.antigravityModelIds.XHigh, 'gemini-4-neon-xhigh');
+
   assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ar.model.fullName, 'Gemini 4 Argon');
   assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ar.model.tagline, 'Code and analysis');
   assert.equal(DATA.ELEMENTS_BY_SYMBOL.Ar.model.antigravityModelIds.High, 'gemini-4-argon-high');
+
+  assert.ok(
+    DATA.DEFAULT_OTHER_MODELS_ANTIGRAVITY.some((m) => m.id === 'gemini-pro-orchestrator-neon'),
+    'Antigravity footer should include Orchestrator (Neon)'
+  );
 });
 
 test('Build artifacts, Chrome Extension manifest, Userscript, and Antigravity plugin manifests are valid', () => {

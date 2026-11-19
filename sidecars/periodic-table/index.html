@@ -111,6 +111,10 @@
       border-color: rgba(45, 212, 191, 0.45);
       background: rgba(22, 59, 57, 0.72);
     }
+    .ag-model-pill[data-theme="coral"] {
+      border-color: rgba(251, 146, 60, 0.45);
+      background: rgba(70, 36, 27, 0.72);
+    }
     .ag-coming-dot {
       width: 6.5px;
       height: 6.5px;
@@ -372,7 +376,7 @@
         initialState: savedPrefs || {
           selectedType: 'element',
           selectedSymbol: 'C',
-          thinkingBySymbol: { H: 'Medium', C: 'High', Ar: 'High' },
+          thinkingBySymbol: { H: 'Medium', C: 'High', Ne: 'High', Ar: 'High' },
         },
         onSelect: (sel) => {
           syncPillUI(sel);

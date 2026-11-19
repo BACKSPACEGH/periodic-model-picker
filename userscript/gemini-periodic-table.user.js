@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Gemini Model Periodic Table
 // @namespace    https://github.com/BACKSPACEGH/periodic-model-picker
-// @version      1.0.0
+// @version      1.1.0
 // @author       Meow
-// @description  Select Gemini 4 models (Hydrogen, Carbon, Argon + Thinking levels) on an interactive 118-element Periodic Table!
+// @description  Select Gemini 4 models (Hydrogen, Carbon, Neon, Argon + Thinking levels) on an interactive 118-element Periodic Table!
 // @match        https://gemini.google.com/*
 // @downloadURL  https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js
 // @updateURL    https://raw.githubusercontent.com/BACKSPACEGH/periodic-model-picker/main/userscript/gemini-periodic-table.user.js
@@ -221,6 +221,36 @@
       },
       geminiWebMatchers: ['carbon', 'pro', 'ultra', 'advanced', 'complex', '高级', '专业'],
     },
+    Ne: {
+      z: 10,
+      symbol: 'Ne',
+      elementName: 'Neon',
+      fullName: 'Gemini 4 Neon',
+      tagline: 'Fast deep reasoning',
+      taglineZh: '高速深度推理与代码',
+      theme: 'coral',
+      colors: {
+        tileBg: '#46241b',
+        tileBgHover: '#582d22',
+        tileBorder: '#fb923c',
+        tileText: '#fff4ed',
+        tileNumber: '#fdba74',
+        dot: '#fdba74',
+        pillActiveBg: '#5e2e20',
+        pillActiveBorder: '#fb923c',
+        pillActiveText: '#ffedd5',
+      },
+      defaultThinking: 'High',
+      thinkingLevels: ['Low', 'Medium', 'High'],
+      antigravityThinkingLevels: ['Low', 'Medium', 'High', 'XHigh'],
+      antigravityModelIds: {
+        Low: 'gemini-4-neon-low',
+        Medium: 'gemini-4-neon-medium',
+        High: 'gemini-4-neon-high',
+        XHigh: 'gemini-4-neon-xhigh',
+      },
+      geminiWebMatchers: ['neon', 'thinking', 'reasoning', 'pro', 'code', '思考', '推理'],
+    },
     Ar: {
       z: 18,
       symbol: 'Ar',
@@ -260,12 +290,12 @@
 
   // Bottom-left Other models available in Antigravity
   const DEFAULT_OTHER_MODELS_ANTIGRAVITY = [
+    { id: 'gemini-pro-orchestrator-neon', label: 'Orchestrator (Ne)' },
+    { id: 'gemini-pro-orchestrator-g1-pro', label: 'Orchestrator (Ar)' },
     { id: 'gemini-3.8-flash-high', label: '3.8 Flash (High)' },
     { id: 'gemini-3.8-flash-medium', label: '3.8 Flash (Med)' },
-    { id: 'gemini-pro-orchestrator', label: 'Orchestrator (C)' },
-    { id: 'gemini-pro-orchestrator-argon', label: 'Orchestrator (Ar)' },
-    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-    { id: 'claude-opus-4-6-thinking', label: 'Claude Opus 4.6' },
+    { id: 'claude-sonnet-5-5-medium', label: 'Claude Sonnet 5.5' },
+    { id: 'claude-opus-5-5-medium', label: 'Claude Opus 5.5' },
     { id: 'gpt-oss-120b-medium', label: 'GPT-OSS 120B' },
   ];
 
@@ -708,6 +738,24 @@
       box-shadow: 0 0 6px rgba(138, 248, 233, 0.9);
     }
 
+    .gpt-tile[data-theme="coral"] {
+      background: #46241b;
+      border: 1.5px solid #fb923c;
+      color: #fff4ed;
+      box-shadow: 0 0 14px rgba(251, 146, 60, 0.18);
+    }
+    .gpt-tile[data-theme="coral"]:hover {
+      background: #582d22;
+      border-color: #fdba74;
+    }
+    .gpt-tile[data-theme="coral"] .gpt-tile-z {
+      color: #fdba74;
+    }
+    .gpt-tile[data-theme="coral"] .gpt-tile-dot {
+      background: #fed7aa;
+      box-shadow: 0 0 6px rgba(254, 215, 170, 0.9);
+    }
+
     /* Footer: Older / Other Models */
     .gpt-footer {
       display: flex;
@@ -835,6 +883,11 @@
       border-color: #2dd4bf;
       color: #e6fffb;
     }
+    .gpt-pop-badge[data-theme="coral"] {
+      background: #46241b;
+      border-color: #fb923c;
+      color: #fff4ed;
+    }
 
     .gpt-pop-badge-z {
       position: absolute;
@@ -931,6 +984,11 @@
       border-color: rgba(45, 212, 191, 0.45);
       color: #c5fbf4;
     }
+    .gpt-thinking-btn.is-active[data-theme="coral"] {
+      background: #5e2e20;
+      border-color: rgba(251, 146, 60, 0.48);
+      color: #ffedd5;
+    }
   `;
 
   const SPARKLE_SVG = `
@@ -990,6 +1048,7 @@
         thinkingBySymbol: {
           H: init.thinkingBySymbol?.H || 'Medium',
           C: init.thinkingBySymbol?.C || 'High',
+          Ne: init.thinkingBySymbol?.Ne || 'High',
           Ar: init.thinkingBySymbol?.Ar || 'High',
         },
         activePopoverSymbol: null,
@@ -1106,13 +1165,14 @@
         grid.appendChild(lbl);
       }
 
-      // Center Hero ("Gemini 4" + 3 released / Coming soon)
+      // Center Hero ("Gemini 4" + released count / Coming soon)
+      const releasedCount = Object.keys(DATA.RELEASED_MODELS).length;
       const hero = document.createElement('div');
       hero.className = 'gpt-hero';
       hero.innerHTML = `
         <div class="gpt-hero-heading">Gemini 4</div>
         <div class="gpt-legend">
-          <span class="gpt-legend-item"><span class="gpt-dot-released"></span>3 released</span>
+          <span class="gpt-legend-item"><span class="gpt-dot-released"></span>${releasedCount} released</span>
           <span class="gpt-legend-item"><span class="gpt-dot-coming"></span>Coming soon</span>
         </div>
       `;
@@ -1763,7 +1823,7 @@
 
   /**
    * Programmatically opens Gemini's native Material menu, matches the selected model
-   * (Hydrogen -> Hydrogen/Flash/Fast, Carbon -> Carbon/Pro/Advanced, Argon -> Argon/Thinking),
+   * (Hydrogen -> Hydrogen/Flash/Fast, Carbon -> Carbon/Pro/Advanced, Neon -> Neon/Thinking/Pro, Argon -> Argon/Thinking),
    * clicks the option, and harvests any legacy/other models into the bottom bar.
    */
   async function syncWithNativeGeminiMenu(sel) {
@@ -1876,7 +1936,7 @@
     const savedState = stored[STORAGE_KEY] || {
       selectedType: 'element',
       selectedSymbol: 'H',
-      thinkingBySymbol: { H: 'Medium', C: 'High', Ar: 'High' },
+      thinkingBySymbol: { H: 'Medium', C: 'High', Ne: 'High', Ar: 'High' },
     };
 
     widget = new window.GeminiPeriodicTableWidget.PeriodicTableWidget({

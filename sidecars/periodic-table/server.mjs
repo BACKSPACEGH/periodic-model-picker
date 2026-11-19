@@ -32,7 +32,7 @@ function readPrefs() {
     selectedType: 'element',
     selectedSymbol: 'C',
     olderModelId: null,
-    thinkingBySymbol: { H: 'Medium', C: 'High', Ar: 'High' },
+    thinkingBySymbol: { H: 'Medium', C: 'High', Ne: 'High', Ar: 'High' },
   };
 }
 

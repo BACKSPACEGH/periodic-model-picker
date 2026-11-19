@@ -160,7 +160,7 @@
 
   /**
    * Programmatically opens Gemini's native Material menu, matches the selected model
-   * (Hydrogen -> Hydrogen/Flash/Fast, Carbon -> Carbon/Pro/Advanced, Argon -> Argon/Thinking),
+   * (Hydrogen -> Hydrogen/Flash/Fast, Carbon -> Carbon/Pro/Advanced, Neon -> Neon/Thinking/Pro, Argon -> Argon/Thinking),
    * clicks the option, and harvests any legacy/other models into the bottom bar.
    */
   async function syncWithNativeGeminiMenu(sel) {
@@ -273,7 +273,7 @@
     const savedState = stored[STORAGE_KEY] || {
       selectedType: 'element',
       selectedSymbol: 'H',
-      thinkingBySymbol: { H: 'Medium', C: 'High', Ar: 'High' },
+      thinkingBySymbol: { H: 'Medium', C: 'High', Ne: 'High', Ar: 'High' },
     };
 
     widget = new window.GeminiPeriodicTableWidget.PeriodicTableWidget({

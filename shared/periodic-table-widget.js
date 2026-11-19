@@ -405,6 +405,24 @@
       box-shadow: 0 0 6px rgba(138, 248, 233, 0.9);
     }
 
+    .gpt-tile[data-theme="coral"] {
+      background: #46241b;
+      border: 1.5px solid #fb923c;
+      color: #fff4ed;
+      box-shadow: 0 0 14px rgba(251, 146, 60, 0.18);
+    }
+    .gpt-tile[data-theme="coral"]:hover {
+      background: #582d22;
+      border-color: #fdba74;
+    }
+    .gpt-tile[data-theme="coral"] .gpt-tile-z {
+      color: #fdba74;
+    }
+    .gpt-tile[data-theme="coral"] .gpt-tile-dot {
+      background: #fed7aa;
+      box-shadow: 0 0 6px rgba(254, 215, 170, 0.9);
+    }
+
     /* Footer: Older / Other Models */
     .gpt-footer {
       display: flex;
@@ -532,6 +550,11 @@
       border-color: #2dd4bf;
       color: #e6fffb;
     }
+    .gpt-pop-badge[data-theme="coral"] {
+      background: #46241b;
+      border-color: #fb923c;
+      color: #fff4ed;
+    }
 
     .gpt-pop-badge-z {
       position: absolute;
@@ -628,6 +651,11 @@
       border-color: rgba(45, 212, 191, 0.45);
       color: #c5fbf4;
     }
+    .gpt-thinking-btn.is-active[data-theme="coral"] {
+      background: #5e2e20;
+      border-color: rgba(251, 146, 60, 0.48);
+      color: #ffedd5;
+    }
   `;
 
   const SPARKLE_SVG = `
@@ -687,6 +715,7 @@
         thinkingBySymbol: {
           H: init.thinkingBySymbol?.H || 'Medium',
           C: init.thinkingBySymbol?.C || 'High',
+          Ne: init.thinkingBySymbol?.Ne || 'High',
           Ar: init.thinkingBySymbol?.Ar || 'High',
         },
         activePopoverSymbol: null,
@@ -803,13 +832,14 @@
         grid.appendChild(lbl);
       }
 
-      // Center Hero ("Gemini 4" + 3 released / Coming soon)
+      // Center Hero ("Gemini 4" + released count / Coming soon)
+      const releasedCount = Object.keys(DATA.RELEASED_MODELS).length;
       const hero = document.createElement('div');
       hero.className = 'gpt-hero';
       hero.innerHTML = `
         <div class="gpt-hero-heading">Gemini 4</div>
         <div class="gpt-legend">
-          <span class="gpt-legend-item"><span class="gpt-dot-released"></span>3 released</span>
+          <span class="gpt-legend-item"><span class="gpt-dot-released"></span>${releasedCount} released</span>
           <span class="gpt-legend-item"><span class="gpt-dot-coming"></span>Coming soon</span>
         </div>
       `;

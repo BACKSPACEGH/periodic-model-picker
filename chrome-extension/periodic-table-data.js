@@ -208,6 +208,36 @@
       },
       geminiWebMatchers: ['carbon', 'pro', 'ultra', 'advanced', 'complex', '高级', '专业'],
     },
+    Ne: {
+      z: 10,
+      symbol: 'Ne',
+      elementName: 'Neon',
+      fullName: 'Gemini 4 Neon',
+      tagline: 'Fast deep reasoning',
+      taglineZh: '高速深度推理与代码',
+      theme: 'coral',
+      colors: {
+        tileBg: '#46241b',
+        tileBgHover: '#582d22',
+        tileBorder: '#fb923c',
+        tileText: '#fff4ed',
+        tileNumber: '#fdba74',
+        dot: '#fdba74',
+        pillActiveBg: '#5e2e20',
+        pillActiveBorder: '#fb923c',
+        pillActiveText: '#ffedd5',
+      },
+      defaultThinking: 'High',
+      thinkingLevels: ['Low', 'Medium', 'High'],
+      antigravityThinkingLevels: ['Low', 'Medium', 'High', 'XHigh'],
+      antigravityModelIds: {
+        Low: 'gemini-4-neon-low',
+        Medium: 'gemini-4-neon-medium',
+        High: 'gemini-4-neon-high',
+        XHigh: 'gemini-4-neon-xhigh',
+      },
+      geminiWebMatchers: ['neon', 'thinking', 'reasoning', 'pro', 'code', '思考', '推理'],
+    },
     Ar: {
       z: 18,
       symbol: 'Ar',
@@ -247,12 +277,12 @@
 
   // Bottom-left Other models available in Antigravity
   const DEFAULT_OTHER_MODELS_ANTIGRAVITY = [
+    { id: 'gemini-pro-orchestrator-neon', label: 'Orchestrator (Ne)' },
+    { id: 'gemini-pro-orchestrator-g1-pro', label: 'Orchestrator (Ar)' },
     { id: 'gemini-3.8-flash-high', label: '3.8 Flash (High)' },
     { id: 'gemini-3.8-flash-medium', label: '3.8 Flash (Med)' },
-    { id: 'gemini-pro-orchestrator', label: 'Orchestrator (C)' },
-    { id: 'gemini-pro-orchestrator-argon', label: 'Orchestrator (Ar)' },
-    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-    { id: 'claude-opus-4-6-thinking', label: 'Claude Opus 4.6' },
+    { id: 'claude-sonnet-5-5-medium', label: 'Claude Sonnet 5.5' },
+    { id: 'claude-opus-5-5-medium', label: 'Claude Opus 5.5' },
     { id: 'gpt-oss-120b-medium', label: 'GPT-OSS 120B' },
   ];
 

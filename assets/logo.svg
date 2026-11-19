@@ -4,11 +4,6 @@
       <stop offset="0%" stop-color="#1b1d24"/>
       <stop offset="100%" stop-color="#121318"/>
     </linearGradient>
-    <linearGradient id="sparkleGrad" x1="150" y1="36" x2="214" y2="100" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#60a5fa"/>
-      <stop offset="55%" stop-color="#a78bfa"/>
-      <stop offset="100%" stop-color="#2dd4bf"/>
-    </linearGradient>
   </defs>
 
   <!-- 10% safe margin around 256x256 -> 26..230 (204x204) -->
@@ -20,8 +15,10 @@
   <circle cx="108" cy="59" r="4" fill="#93c5fd"/>
   <text x="84" y="101" text-anchor="middle" fill="#eff6ff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="34" font-weight="700">H</text>
 
-  <!-- Gemini 4 Sparkle (Top-Right) -->
-  <path d="M172 48 C174 68, 180 74, 200 76 C180 78, 174 84, 172 104 C170 84, 164 78, 144 76 C164 74, 170 68, 172 48 Z" fill="url(#sparkleGrad)"/>
+  <!-- Ne Tile (Top-Right, Coral) -->
+  <rect x="134" y="46" width="76" height="76" rx="16" fill="#46241b" stroke="#fb923c" stroke-width="3.5"/>
+  <text x="145" y="66" fill="#fdba74" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="600">10</text>
+  <text x="172" y="101" text-anchor="middle" fill="#fff4ed" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="31" font-weight="700">Ne</text>
 
   <!-- C Tile (Bottom-Left, Purple) -->
   <rect x="46" y="134" width="76" height="76" rx="16" fill="#35234b" stroke="#a86af9" stroke-width="3.5"/>

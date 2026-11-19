@@ -36,7 +36,7 @@
   <!-- Center Gemini 4 Title -->
   <text x="234" y="254" fill="#f1f3f4" font-family="-apple-system, sans-serif" font-size="26" font-weight="500">Gemini 4</text>
   <circle cx="238" cy="272" r="3" fill="#669df6"/>
-  <text x="247" y="276" fill="#9aa0a6" font-family="-apple-system, sans-serif" font-size="11.5">3 released</text>
+  <text x="247" y="276" fill="#9aa0a6" font-family="-apple-system, sans-serif" font-size="11.5">4 released</text>
   <circle cx="322" cy="272" r="3" stroke="#80868b" stroke-width="1.3"/>
   <text x="331" y="276" fill="#9aa0a6" font-family="-apple-system, sans-serif" font-size="11.5">Coming soon</text>
 
@@ -72,8 +72,9 @@
   <text x="782" y="264" text-anchor="middle" fill="#c4c7c5" font-family="-apple-system, sans-serif" font-size="13" font-weight="600">O</text>
   <rect x="808" y="238" width="40" height="36" rx="6" fill="#23252b" stroke="#30333b"/>
   <text x="828" y="264" text-anchor="middle" fill="#c4c7c5" font-family="-apple-system, sans-serif" font-size="13" font-weight="600">F</text>
-  <rect x="854" y="238" width="40" height="36" rx="6" fill="#23252b" stroke="#30333b"/>
-  <text x="874" y="264" text-anchor="middle" fill="#c4c7c5" font-family="-apple-system, sans-serif" font-size="13" font-weight="600">Ne</text>
+  <rect x="854" y="238" width="40" height="36" rx="6" fill="#46241b" stroke="#fb923c" stroke-width="1.6"/>
+  <text x="859" y="248" fill="#fdba74" font-family="-apple-system, sans-serif" font-size="8.5">10</text>
+  <text x="874" y="264" text-anchor="middle" fill="#fff4ed" font-family="-apple-system, sans-serif" font-size="13.5" font-weight="700">Ne</text>
 
   <!-- Row 3: Na, Mg ... Al, Si, P, S, Cl, Ar (teal!) -->
   <rect x="74" y="278" width="40" height="36" rx="6" fill="#23252b" stroke="#30333b"/>

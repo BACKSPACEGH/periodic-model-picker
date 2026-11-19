@@ -16,7 +16,7 @@
         currentSelectionText.textContent = st.olderModelId;
       } else if (st.selectedSymbol) {
         const sym = st.selectedSymbol;
-        const names = { H: 'Gemini 4 Hydrogen', C: 'Gemini 4 Carbon', Ar: 'Gemini 4 Argon' };
+        const names = { H: 'Gemini 4 Hydrogen', C: 'Gemini 4 Carbon', Ne: 'Gemini 4 Neon', Ar: 'Gemini 4 Argon' };
         if (names[sym]) {
           const lvl = st.thinkingBySymbol?.[sym] || 'Medium';
           currentSelectionText.textContent = `${names[sym]} · ${lvl}`;
